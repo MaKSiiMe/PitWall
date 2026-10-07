@@ -1,0 +1,11 @@
+<table>
+  <tr><th>{{ t.get("web.name") }}</th><th>login</th><th>{{ t.get("web.role") }}</th><th>{{ t.get("web.lang") }}</th><th></th></tr>
+  {% for p in players %}
+  <tr>
+    <td>{{ p.name|safe }}</td><td class="muted">{{ p.login }}</td><td>{{ p.role }}</td><td>{{ p.lang }}</td>
+    <td class="row">
+      {% for a in p.actions %}<button hx-post="/admin/command" hx-vals='{{ a.1 }}' hx-target="#console"{% if a.2 %} class="danger" hx-confirm="{{ a.0 }} ?"{% endif %}>{{ a.0 }}</button>{% endfor %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>

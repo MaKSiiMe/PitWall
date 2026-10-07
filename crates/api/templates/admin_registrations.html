@@ -1,0 +1,14 @@
+{% if rows.is_empty() %}<p class="muted">{{ t.get("web.no_registration") }}</p>{% else %}
+<table>
+  {% for r in rows %}
+  <tr>
+    <td><strong>{{ r.name }}</strong> <span class="muted">{{ r.participant_id }}</span></td>
+    <td class="muted">{{ r.players }}</td><td class="muted">{{ r.contact }}</td><td><span class="pill">{{ r.status }}</span></td>
+    <td class="row">{% if r.status == "pending" %}
+      <button class="primary" hx-post="/admin/registrations/{{ r.id }}/accept" hx-target="#console">{{ t.get("web.accept") }}</button>
+      <button class="danger" hx-post="/admin/registrations/{{ r.id }}/refuse" hx-target="#console">{{ t.get("web.refuse") }}</button>
+    {% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}

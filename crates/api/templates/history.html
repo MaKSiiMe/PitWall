@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h2>{{ t.get("web.history_title") }}</h2>
+  <table>
+    {% for run in runs %}
+    <tr><td><a class="btn" href="/history/{{ run.id }}">{{ run.name }}</a></td><td><span class="pill">{{ run.status }}</span></td><td class="muted">{{ run.date }}</td>
+      <td><a class="btn" href="/api/history/{{ run.id }}/export.csv">CSV</a> <a class="btn" href="/api/history/{{ run.id }}/export.json">JSON</a></td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}

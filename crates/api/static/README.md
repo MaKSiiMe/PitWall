@@ -1,0 +1,2 @@
+`htmx.min.js` is htmx 2.0.4 (https://htmx.org), Zero-Clause BSD license, vendored so that the
+dashboard works without Internet access. sha256: e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447

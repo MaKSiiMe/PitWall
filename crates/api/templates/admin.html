@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row" style="justify-content:space-between">
+  <h1 style="margin:0">{{ t.get("web.nav_admin") }}</h1>
+  <form method="post" action="/admin/logout"><button type="submit">{{ t.get("web.logout") }}</button></form>
+</div>
+<section class="card">
+  <h2>{{ t.get("web.admin_console") }}</h2>
+  <form hx-post="/admin/command" hx-target="#console" hx-swap="innerHTML" class="row">
+    <input name="line" placeholder="{{ t.get("web.console_placeholder") }}" style="flex:1" autocomplete="off">
+    <button class="primary" type="submit">{{ t.get("web.run") }}</button>
+  </form>
+  <pre class="console" id="console"></pre>
+</section>
+<div class="grid">
+  <section class="card">
+    <h2>{{ t.get("web.admin_cup") }}</h2>
+    <form hx-post="/admin/command" hx-target="#console" class="row">
+      <select name="line">
+        {% for cup in cups %}<option value="cup load {{ cup.0 }}">{{ cup.1 }}</option>{% endfor %}
+      </select>
+      <button type="submit">load</button>
+    </form>
+    <div class="row" style="margin-top:12px">
+      {% for action in cup_actions %}<button hx-post="/admin/command" hx-vals='{{ action.1 }}' hx-target="#console">{{ action.0 }}</button>{% endfor %}
+    </div>
+  </section>
+  <section class="card">
+    <h2>{{ t.get("web.admin_formats") }}</h2>
+    <div class="row">
+      {% for f in formats %}<button hx-post="/admin/command" hx-vals='{{ f.1 }}' hx-target="#console">{{ f.0 }}</button>{% endfor %}
+    </div>
+    <div class="row" style="margin-top:12px">
+      {% for action in game_actions %}<button hx-post="/admin/command" hx-vals='{{ action.1 }}' hx-target="#console">{{ action.0 }}</button>{% endfor %}
+    </div>
+  </section>
+</div>
+<section class="card">
+  <h2>{{ t.get("web.admin_players") }}</h2>
+  <div hx-get="/admin/players" hx-trigger="load, every 3s"></div>
+</section>
+<section class="card">
+  <h2>{{ t.get("web.admin_registrations") }}</h2>
+  <div hx-get="/admin/registrations" hx-trigger="load, every 5s"></div>
+</section>
+<section class="card">
+  <h2>{{ t.get("web.admin_audit") }}</h2>
+  <div hx-get="/admin/audit" hx-trigger="load, every 5s"></div>
+</section>
+{% endblock %}

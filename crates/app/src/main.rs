@@ -91,7 +91,7 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         &formats,
     )));
     controller.add_plugin(pitwall_plugin_admin::AdminPlugin);
-    let (cup_plugin, _cup_handle) = pitwall_plugin_cup::CupPlugin::new(
+    let (cup_plugin, cup_handle) = pitwall_plugin_cup::CupPlugin::new(
         Arc::clone(&formats),
         Arc::new(RwLock::new(cups)),
         config.controller.data_dir.clone(),
@@ -134,6 +134,25 @@ async fn run(cli: Cli) -> Result<(), AppError> {
 
     let shutdown = CancellationToken::new();
     tokio::spawn(wait_for_signal(shutdown.clone()));
+    if config.api.enabled {
+        let api = pitwall_api::ApiState::new(
+            controller.handles(),
+            cup_handle,
+            Arc::clone(&formats),
+            storage.clone(),
+            pitwall_api::ApiConfig {
+                bind: config.api.bind.clone(),
+                admin_token: config.api.admin_token.clone(),
+                public_url: config.api.public_url.clone(),
+            },
+        );
+        let api_shutdown = shutdown.clone();
+        tokio::spawn(async move {
+            if let Err(err) = pitwall_api::serve(api, api_shutdown).await {
+                tracing::error!(%err, "web dashboard stopped");
+            }
+        });
+    }
     if config.controller.console {
         tokio::spawn(console::run(controller.handles(), shutdown.clone()));
     }

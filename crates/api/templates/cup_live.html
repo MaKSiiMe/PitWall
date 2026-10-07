@@ -1,0 +1,39 @@
+{% match cup %}
+{% when None %}
+<section class="card"><p class="muted">{{ t.get("web.no_cup") }}</p></section>
+{% when Some with (c) %}
+<section class="card">
+  <h2>{{ t.get("web.nav_cup") }}</h2>
+  <p style="font-size:22px;font-weight:800;margin:0">{{ c.name }} <span class="pill live">{{ c.status }}</span></p>
+  <p class="muted">{{ c.phase }}</p>
+  {% if !c.racing.is_empty() %}<p><strong>{{ t.get("web.racing") }}:</strong> {% for r in c.racing %}{{ r|safe }}{% if !loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if !c.ready.is_empty() %}<p><strong>{{ t.get("web.ready") }}:</strong> {{ c.ready.len() }}</p>{% endif %}
+</section>
+{% if !c.bracket.is_empty() %}
+<section class="card">
+  <h2>{{ t.get("web.bracket") }}</h2>
+  <div class="row" style="align-items:stretch">
+  {% for round in c.bracket %}
+    <div style="display:grid;gap:8px;min-width:180px">
+    {% for m in round %}
+      <div class="msg">{{ m.a|safe }}<br>{{ m.b|safe }}{% if !m.winner.is_empty() %}<br><span class="pill ok">{{ m.winner|safe }}</span>{% endif %}</div>
+    {% endfor %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% for phase in c.results %}
+<section class="card">
+  <h2>{{ t.get("web.results") }} — {{ phase.name }}</h2>
+  <table>
+    <tr><th>{{ t.get("web.rank") }}</th><th>{{ t.get("web.name") }}</th><th class="num">{{ t.get("web.points") }}</th><th class="num">{{ t.get("web.time") }}</th><th>{{ t.get("web.qualified") }}</th></tr>
+    {% for s in phase.rows %}<tr><td class="num">{{ s.rank }}</td><td>{{ s.name|safe }}</td><td class="num">{{ s.points }}</td><td class="num">{{ s.time }}</td><td>{% if s.qualified %}<span class="pill ok">✔</span>{% endif %}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endfor %}
+<section class="card">
+  <h2>{{ t.get("web.participants") }} ({{ c.participants.len() }})</h2>
+  <div class="row">{% for p in c.participants %}<span class="pill">{{ p|safe }}</span>{% endfor %}</div>
+</section>
+{% endmatch %}

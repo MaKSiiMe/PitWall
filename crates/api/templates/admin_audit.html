@@ -1,0 +1,4 @@
+<table>
+  <tr><th>{{ t.get("web.when") }}</th><th>{{ t.get("web.who") }}</th><th>{{ t.get("web.action") }}</th><th>{{ t.get("web.success") }}</th></tr>
+  {% for a in rows %}<tr><td class="muted">{{ a.when }}</td><td>{{ a.actor }}</td><td>{{ a.action }} <span class="muted">{{ a.details }}</span></td><td>{% if a.success %}<span class="pill ok">✔</span>{% else %}<span class="pill bad">✘</span>{% endif %}</td></tr>{% endfor %}
+</table>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid">
+  <section class="card">
+    <h2>{{ t.get("web.nav_home") }}</h2>
+    {% if connected %}<span class="pill ok">{{ t.get("web.online") }}</span>{% else %}<span class="pill bad">{{ t.get("web.offline") }}</span>{% endif %}
+    <table style="margin-top:12px">
+      <tr><th>{{ t.get("web.map") }}</th><td>{{ map|safe }}</td></tr>
+      <tr><th>{{ t.get("web.mode") }}</th><td>{{ mode }}</td></tr>
+      <tr><th>{{ t.get("web.players") }}</th><td>{{ racing }} <span class="muted">+ {{ spectators }} {{ t.get("web.spectators") }}</span></td></tr>
+    </table>
+  </section>
+  <section class="card">
+    <h2>{{ t.get("web.nav_cup") }}</h2>
+    {% match cup %}
+    {% when Some with (c) %}
+      <p><strong>{{ c.name }}</strong> <span class="pill live">{{ c.status }}</span></p>
+      <p class="muted">{{ c.phase }}</p>
+      {% if c.registration_open %}<p>{{ t.get("web.cup_open") }} <a class="btn primary" href="/register">{{ t.get("web.register_now") }}</a></p>{% endif %}
+      <a class="btn" href="/cup">→ {{ t.get("web.nav_cup") }}</a>
+    {% when None %}
+      <p class="muted">{{ t.get("web.no_cup") }}</p>
+    {% endmatch %}
+  </section>
+</div>
+<section class="card">
+  <h2>{{ t.get("web.players") }}</h2>
+  <table>
+    {% for p in players %}<tr><td>{{ p.name|safe }}</td><td class="muted">{{ p.zone }}</td><td>{% if p.spectator %}<span class="pill">spec</span>{% endif %}</td></tr>{% endfor %}
+  </table>
+</section>
+{% if !leaderboard.is_empty() %}
+<section class="card">
+  <h2>{{ t.get("web.leaderboard") }}</h2>
+  <table>
+    {% for (i, p) in leaderboard.iter().enumerate() %}<tr><td class="num">{{ i + 1 }}</td><td>{{ p.name|safe }}</td><td class="num">{{ p.rating }}</td></tr>{% endfor %}
+  </table>
+</section>
+{% endif %}
+{% endblock %}

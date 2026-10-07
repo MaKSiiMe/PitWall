@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="max-width:560px">
+  <h2>{{ t.get("web.register_title") }}{% if !cup_name.is_empty() %} — {{ cup_name }}{% endif %}</h2>
+  {% if !message.is_empty() %}<p class="msg {% if success %}ok{% else %}bad{% endif %}">{{ message }}</p>{% endif %}
+  {% if open %}
+  <form method="post" action="/register">
+    {% if teams %}
+      <label>{{ t.get("web.field_team_id") }}<input name="id" required pattern="[A-Za-z0-9_-]{2,32}"></label>
+      <label>{{ t.get("web.field_team_name") }}<input name="name" required maxlength="40"></label>
+      <label>{{ t.get("web.field_players") }}<input name="players" required placeholder="login1, login2"></label>
+      <p class="muted">{{ t.get("web.register_teams_help") }}</p>
+    {% else %}
+      <label>{{ t.get("web.field_login") }}<input name="id" required pattern="[A-Za-z0-9_-]{2,64}"></label>
+      <label>{{ t.get("web.field_name") }}<input name="name" required maxlength="40"></label>
+      <p class="muted">{{ t.get("web.register_players_help") }}</p>
+    {% endif %}
+    <label>{{ t.get("web.field_contact") }}<input name="contact" maxlength="80"></label>
+    <button class="primary" type="submit">{{ t.get("web.submit") }}</button>
+  </form>
+  {% else %}
+  <p class="muted">{{ t.get("web.register_closed") }}</p>
+  {% endif %}
+</section>
+{% endblock %}
