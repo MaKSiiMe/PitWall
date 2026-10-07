@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "plugins/*"]
+default-members = ["crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+repository = "https://github.com/MaKSiiMe/PitWall"
+publish = false
+
+[workspace.dependencies]
+# Internal crates
+pitwall-gbx = { path = "crates/gbx" }
+pitwall-core = { path = "crates/core" }
+pitwall-formats = { path = "crates/formats" }
+pitwall-ui = { path = "crates/ui" }
+pitwall-api = { path = "crates/api" }
+pitwall-storage = { path = "crates/storage" }
+pitwall-plugin-logger = { path = "plugins/logger" }
+
+# Async runtime
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time", "signal"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+quick-xml = "0.42"
+base64 = "0.23"
+
+# Errors, logs, config
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+figment = { version = "0.10", features = ["toml", "env"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# No unwrap/expect outside tests (tests are allowed via clippy.toml).
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.release]
+lto = "thin"

@@ -1,0 +1,13 @@
+[package]
+name = "pitwall-core"
+description = "Event bus, server state and command API shared by every PitWall plugin."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "pitwall-storage"
+description = "Persistence layer (SQLite via sqlx)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

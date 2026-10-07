@@ -1,0 +1,13 @@
+[package]
+name = "pitwall-api"
+description = "HTTP/WebSocket API for admin tools and stream overlays."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
