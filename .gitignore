@@ -2,3 +2,5 @@
 # Local secrets / overrides — never commit credentials.
 .env
 pitwall.local.toml
+pitwall.toml
+/data

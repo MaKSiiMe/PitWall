@@ -117,7 +117,15 @@ async fn wait_for_signal(shutdown: CancellationToken) {
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Local secrets: `.env` next to the binary's working directory, if present.
+    let dotenv = dotenvy::dotenv();
     let cli = Cli::parse();
+    if let Err(err) = dotenv
+        && !err.not_found()
+    {
+        eprintln!("pitwall: invalid .env file: {err}");
+        return ExitCode::FAILURE;
+    }
     match run(cli).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {

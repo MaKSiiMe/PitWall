@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 clap.workspace = true
+dotenvy.workspace = true
 figment.workspace = true
 pitwall-core.workspace = true
 pitwall-formats.workspace = true
