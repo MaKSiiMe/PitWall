@@ -226,6 +226,7 @@ dependencies = [
  "base64",
  "bytes",
  "futures",
+ "pitwall-gbx",
  "quick-xml",
  "serde",
  "serde_json",

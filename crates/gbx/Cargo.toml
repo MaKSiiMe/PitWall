@@ -7,6 +7,10 @@ rust-version.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# In-process fake server for tests and offline demos.
+mock = []
+
 [dependencies]
 base64.workspace = true
 bytes.workspace = true
@@ -20,6 +24,7 @@ tokio-util.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+pitwall-gbx = { path = ".", features = ["mock"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
