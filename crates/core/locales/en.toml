@@ -1,0 +1,30 @@
+# PitWall core — English
+[core]
+prefix = "$s$0afPitWall$z$s$fff » "
+unknown_command = "$f80Unknown command $fff/{name}$f80. Type $fff/help$f80."
+permission_denied = "$f44You are not allowed to use $fff/{name}$f44."
+usage = "$f80Usage: $fff{usage}"
+error = "$f44Error: {message}"
+not_connected = "$f44The game server is not connected."
+done = "$0f0Done."
+help_header = "$fffAvailable commands:"
+help_entry = "$fff/{name} $888{usage} $aaa— {description}"
+lang_set = "$0f0Language set to English."
+lang_usage = "/lang <fr|en>"
+role_of = "$fff{login}$aaa is $fff{role}$aaa."
+role_set = "$0f0{login} is now {role}."
+player_joined = "$aaa{name}$z$s$aaa joined."
+player_left = "$aaa{name}$z$s$aaa left."
+
+[core.cmd]
+help = "List the commands you can use"
+lang = "Choose your language"
+role = "Show or set a player's role"
+players = "List connected players"
+
+[core.role]
+player = "Player"
+caster = "Caster"
+referee = "Referee"
+admin = "Admin"
+superadmin = "SuperAdmin"

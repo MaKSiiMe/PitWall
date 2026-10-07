@@ -11,6 +11,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;
 use tokio_util::codec::{FramedRead, FramedWrite};
+use tokio_util::sync::CancellationToken;
 
 use crate::error::Fault;
 use crate::frame::{Frame, GbxCodec, PROTOCOL_HEADER};
@@ -24,6 +25,14 @@ pub struct MockServer {
     addr: SocketAddr,
     calls: Arc<Mutex<Vec<MethodCall>>>,
     callbacks: broadcast::Sender<Bytes>,
+    stop: CancellationToken,
+}
+
+impl Drop for MockServer {
+    /// Dropping the server closes the listener and every connection.
+    fn drop(&mut self) {
+        self.stop.cancel();
+    }
 }
 
 impl std::fmt::Debug for MockServer {
@@ -92,7 +101,15 @@ impl MockServer {
     where
         F: Fn(&MethodCall) -> MethodResponse + Send + Sync + 'static,
     {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        Self::with_handler_on("127.0.0.1:0", handler).await
+    }
+
+    /// Same as [`MockServer::with_handler`] on a given address (to simulate a server restart).
+    pub async fn with_handler_on<F>(bind: &str, handler: F) -> std::io::Result<MockServer>
+    where
+        F: Fn(&MethodCall) -> MethodResponse + Send + Sync + 'static,
+    {
+        let listener = TcpListener::bind(bind).await?;
         let addr = listener.local_addr()?;
         let calls = Arc::new(Mutex::new(Vec::new()));
         let (callbacks, _) = broadcast::channel::<Bytes>(1024);
@@ -100,8 +117,16 @@ impl MockServer {
 
         let accept_calls = Arc::clone(&calls);
         let accept_callbacks = callbacks.clone();
+        let stop = CancellationToken::new();
+        let accept_stop = stop.clone();
         tokio::spawn(async move {
-            while let Ok((stream, _)) = listener.accept().await {
+            loop {
+                let accepted = tokio::select! {
+                    accepted = listener.accept() => accepted,
+                    () = accept_stop.cancelled() => break,
+                };
+                let Ok((stream, _)) = accepted else { break };
+                let connection_stop = accept_stop.clone();
                 let calls = Arc::clone(&accept_calls);
                 let handler = Arc::clone(&handler);
                 let mut callback_rx = accept_callbacks.subscribe();
@@ -118,6 +143,7 @@ impl MockServer {
                     let mut callback_handle: u32 = 0;
                     loop {
                         tokio::select! {
+                            () = connection_stop.cancelled() => break,
                             frame = reader.next() => {
                                 let Some(Ok(frame)) = frame else { break };
                                 let text = String::from_utf8_lossy(&frame.payload);
@@ -151,7 +177,13 @@ impl MockServer {
             addr,
             calls,
             callbacks,
+            stop,
         })
+    }
+
+    /// Closes the listener and every connection, like a crashed server.
+    pub fn shutdown(&self) {
+        self.stop.cancel();
     }
 
     /// `host:port` to connect to.
