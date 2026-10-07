@@ -41,6 +41,8 @@ enum AppError {
     Catalog(#[from] pitwall_core::i18n::CatalogError),
     #[error(transparent)]
     Core(#[from] pitwall_core::CoreError),
+    #[error("cannot open the database: {0}")]
+    Storage(#[from] pitwall_storage::StorageError),
 }
 
 fn init_logs(config: &Config) {
@@ -78,6 +80,8 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         announce_joins: config.controller.announce_joins,
         plugin_configs: config.plugins.clone(),
     };
+    let storage =
+        pitwall_storage::Storage::open(&config.controller.data_dir.join("pitwall.db")).await?;
     let mut controller = Controller::new(options, RoleBook::from_config(&config.roles), translator);
     let formats = Arc::new(RwLock::new(formats));
     controller.add_plugin(pitwall_plugin_logger::LoggerPlugin);
@@ -91,6 +95,7 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         config.controller.data_dir.clone(),
     );
     controller.add_plugin(cup_plugin);
+    controller.add_plugin(pitwall_plugin_storage::StoragePlugin::new(storage.clone()));
     controller.add_plugin(pitwall_plugin_ui::UiPlugin::new(
         Arc::clone(&formats),
         config.controller.data_dir.clone(),

@@ -1,0 +1,23 @@
+[package]
+name = "pitwall-plugin-storage"
+description = "PitWall internal plugin: records players, runs, cups and the audit log."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+pitwall-core.workspace = true
+pitwall-formats.workspace = true
+pitwall-storage.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+pitwall-gbx = { workspace = true, features = ["mock"] }
+tokio.workspace = true
+tokio-util.workspace = true
