@@ -1,0 +1,9 @@
+id = "knockout"
+mode = "knockout"
+name = { en = "Knockout", fr = "Élimination" }
+description = { en = "The last players of each round are eliminated (COTD style).", fr = "Les derniers de chaque manche sont éliminés (style COTD)." }
+
+[settings]
+S_FinishTimeout = 5
+S_RoundsWithoutElimination = 1
+S_EliminatedPlayersNbRanks = "4,16,16"

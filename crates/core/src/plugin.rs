@@ -110,12 +110,16 @@ impl PluginContext {
 
     /// Answers a command where it came from, in the invoker's language.
     pub fn reply(&self, invocation: &Invocation, text: Text) {
-        match &invocation.reply {
-            ReplyTo::Player(login) => self.commands.chat_to(login, text),
-            ReplyTo::Channel(tx) => {
-                let _ = tx.send(self.i18n.render(invocation.lang, &text));
-            }
-            ReplyTo::Nowhere => {}
+        self.replier(invocation).say(text);
+    }
+
+    /// A clonable way to answer an invocation later (from a spawned task).
+    pub fn replier(&self, invocation: &Invocation) -> Replier {
+        Replier {
+            reply: invocation.reply.clone(),
+            lang: invocation.lang,
+            commands: self.commands.clone(),
+            i18n: self.i18n.clone(),
         }
     }
 
@@ -133,6 +137,27 @@ impl PluginContext {
     pub fn chat(&self, to: Recipients, text: Text) {
         self.commands
             .send(crate::command::Command::Chat { to, text });
+    }
+}
+
+/// Answers an invocation where it came from. Cheap to clone, `Send`.
+#[derive(Debug, Clone)]
+pub struct Replier {
+    reply: ReplyTo,
+    lang: Lang,
+    commands: CommandHandle,
+    i18n: Translator,
+}
+
+impl Replier {
+    pub fn say(&self, text: Text) {
+        match &self.reply {
+            ReplyTo::Player(login) => self.commands.chat_to(login, text),
+            ReplyTo::Channel(tx) => {
+                let _ = tx.send(self.i18n.render(self.lang, &text));
+            }
+            ReplyTo::Nowhere => {}
+        }
     }
 }
 

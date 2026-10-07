@@ -14,12 +14,13 @@ pub mod plugin;
 pub mod roles;
 pub mod runtime;
 pub mod state;
+pub mod tmtext;
 
 pub use chat::{CommandRegistry, CommandSpec, Invocation, ReplyTo};
 pub use command::{Command, CommandError, CommandHandle, ModeSwitch, Recipients, SpectatorModeDto};
 pub use event::{Actor, AuditEntry, Event};
 pub use i18n::{Lang, Text, Translator};
-pub use plugin::{EventBus, Plugin, PluginContext, PluginError, PluginFuture};
+pub use plugin::{EventBus, Plugin, PluginContext, PluginError, PluginFuture, Replier};
 pub use roles::{Permission, Role, RoleBook, RolesConfig};
 pub use runtime::{Controller, ControllerOptions, CoreError, Handles, ServerConfig};
 pub use state::{Player, ServerState, StateHandle, now_ms};

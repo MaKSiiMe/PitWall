@@ -1,0 +1,13 @@
+[formats]
+switching = "$fffSwitching to $0af{name}$fff… the map reloads, stay connected!"
+switched = "$fffMode: $0af{name}"
+unknown = "$f80Unknown format $fff{name}$f80. Type $fff/formats$f80."
+list_header = "$fffAvailable formats:"
+list_entry = "$0af{id}$fff — {name} $888{description}"
+setting_set = "$0f0{name} = {value}"
+failed = "$f44Could not switch mode: {message}"
+
+[formats.cmd]
+mode = "Switch to a format right now (players stay connected)"
+formats = "List the available formats"
+set = "Change a mode setting live"

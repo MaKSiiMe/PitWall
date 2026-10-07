@@ -1,0 +1,11 @@
+id = "cup"
+mode = "cup"
+name = { en = "Cup", fr = "Coupe" }
+description = { en = "Reach the points limit to become finalist, then win a round.", fr = "Atteins la limite de points pour être finaliste, puis gagne une manche." }
+
+[settings]
+S_PointsLimit = 100
+S_RoundsPerMap = 5
+S_NbOfWinners = 1
+S_FinishTimeout = -1
+S_WarmUpNb = 1

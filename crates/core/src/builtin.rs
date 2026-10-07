@@ -45,16 +45,14 @@ fn handle(ctx: &PluginContext, inv: &Invocation) {
             let mut lines = vec![Text::tr("core.help_header")];
             for spec in ctx.registry.available_to(inv.role) {
                 let description = ctx.i18n.render(inv.lang, &Text::tr(&spec.description_key));
-                let usage = spec
-                    .usage
-                    .strip_prefix(&format!("/{}", spec.name))
-                    .unwrap_or("")
-                    .trim()
-                    .to_owned();
+                let command = if spec.usage.starts_with(&format!("/{}", spec.name)) {
+                    spec.usage.clone()
+                } else {
+                    format!("/{}", spec.name)
+                };
                 lines.push(
                     Text::tr("core.help_entry")
-                        .arg("name", &spec.name)
-                        .arg("usage", usage)
+                        .arg("command", command)
                         .arg("description", description),
                 );
             }

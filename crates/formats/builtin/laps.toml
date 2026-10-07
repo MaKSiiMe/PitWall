@@ -1,0 +1,8 @@
+id = "laps"
+mode = "laps"
+name = { en = "Laps", fr = "Tours" }
+description = { en = "Multi-lap race.", fr = "Course en plusieurs tours." }
+
+[settings]
+S_ForceLapsNb = -1
+S_FinishTimeout = -1

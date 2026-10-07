@@ -19,9 +19,11 @@ pitwall-ui = { path = "crates/ui" }
 pitwall-api = { path = "crates/api" }
 pitwall-storage = { path = "crates/storage" }
 pitwall-plugin-logger = { path = "plugins/logger" }
+pitwall-plugin-formats = { path = "plugins/formats" }
+pitwall-plugin-admin = { path = "plugins/admin" }
 
 # Async runtime
-tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time", "signal"] }
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "io-util", "io-std", "sync", "time", "signal"] }
 
 tokio-util = { version = "0.7", features = ["codec", "rt"] }
 bytes = "1.12"
@@ -34,10 +36,13 @@ quick-xml = "0.42"
 toml = "1.1"
 base64 = "0.23"
 
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
 # Errors, logs, config
 thiserror = "2.0"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 figment = { version = "0.10", features = ["toml", "env"] }
 
 [workspace.lints.rust]

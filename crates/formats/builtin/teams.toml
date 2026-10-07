@@ -1,0 +1,10 @@
+id = "teams"
+mode = "teams"
+name = { en = "Teams", fr = "Équipes" }
+description = { en = "Blue vs red, points per round.", fr = "Bleus contre rouges, points à chaque manche." }
+
+[settings]
+S_PointsLimit = 5
+S_MaxPointsPerRound = 6
+S_UseTieBreak = true
+S_FinishTimeout = -1

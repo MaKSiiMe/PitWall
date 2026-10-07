@@ -1,0 +1,4 @@
+id = "tmwt"
+mode = "tmwt"
+name = { en = "TMWT teams", fr = "Équipes TMWT" }
+description = { en = "Trackmania World Tour team format (2v2).", fr = "Format équipes du Trackmania World Tour (2v2)." }

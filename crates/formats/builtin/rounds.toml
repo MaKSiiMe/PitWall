@@ -1,0 +1,9 @@
+id = "rounds"
+mode = "rounds"
+name = { en = "Rounds", fr = "Manches" }
+description = { en = "Everybody starts together, points per round.", fr = "Départ groupé, points à chaque manche." }
+
+[settings]
+S_PointsLimit = 50
+S_FinishTimeout = -1
+S_WarmUpNb = 1

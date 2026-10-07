@@ -1,0 +1,4 @@
+id = "royal"
+mode = "royal"
+name = { en = "Royal Time Attack", fr = "Royal Time Attack" }
+description = { en = "Time attack on Royal maps.", fr = "Contre-la-montre sur maps Royal." }

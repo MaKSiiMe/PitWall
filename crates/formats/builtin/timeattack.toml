@@ -1,0 +1,7 @@
+id = "timeattack"
+mode = "timeattack"
+name = { en = "Time Attack", fr = "Contre-la-montre" }
+description = { en = "Free runs, best time wins.", fr = "Tours libres, le meilleur temps gagne." }
+
+[settings]
+S_TimeLimit = 300

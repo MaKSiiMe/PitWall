@@ -59,6 +59,41 @@ impl ServerState {
     pub fn lang_of(&self, login: &str) -> Option<Lang> {
         self.players.get(login).map(|p| p.lang)
     }
+
+    /// Finds a connected player by exact login, then by unique partial login or nickname
+    /// (case-insensitive, formatting ignored).
+    pub fn find_player(&self, query: &str) -> Result<&Player, FindPlayerError> {
+        if let Some(p) = self.players.get(query) {
+            return Ok(p);
+        }
+        let q = query.to_lowercase();
+        let matches: Vec<&Player> = self
+            .players
+            .values()
+            .filter(|p| {
+                p.login.to_lowercase().contains(&q)
+                    || crate::tmtext::strip_formatting(&p.nickname)
+                        .to_lowercase()
+                        .contains(&q)
+            })
+            .collect();
+        match matches.as_slice() {
+            [one] => Ok(one),
+            [] => Err(FindPlayerError::NotFound(query.to_owned())),
+            many => Err(FindPlayerError::Ambiguous(
+                many.iter().map(|p| p.login.clone()).collect(),
+            )),
+        }
+    }
+}
+
+/// Errors of [`ServerState::find_player`].
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum FindPlayerError {
+    #[error("no player matches {0:?}")]
+    NotFound(String),
+    #[error("several players match: {}", .0.join(", "))]
+    Ambiguous(Vec<String>),
 }
 
 /// Shared, cheaply clonable handle on the state.
