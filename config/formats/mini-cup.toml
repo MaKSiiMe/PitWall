@@ -1,0 +1,14 @@
+# Example of a custom format. Every *.toml in config/formats is loaded at startup.
+id = "mini-cup"
+mode = "cup"
+name = { en = "Mini cup", fr = "Mini coupe" }
+description = { en = "Short cup for 8 players.", fr = "Coupe courte pour 8 joueurs." }
+points_repartition = [10, 6, 4, 3, 2, 1, 1, 1]
+
+[settings]
+S_PointsLimit = 50
+S_RoundsPerMap = 4
+S_NbOfWinners = 1
+S_WarmUpNb = 1
+S_WarmUpDuration = 30
+S_FinishTimeout = 10

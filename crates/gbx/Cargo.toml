@@ -27,5 +27,9 @@ tracing.workspace = true
 pitwall-gbx = { path = ".", features = ["mock"] }
 tokio = { workspace = true, features = ["test-util"] }
 
+[[example]]
+name = "mock_server"
+required-features = ["mock"]
+
 [lints]
 workspace = true

@@ -1,0 +1,36 @@
+# PitWall configuration. Copy to pitwall.toml and adapt.
+# Every value can be overridden by an environment variable: PITWALL_<SECTION>__<KEY>,
+# e.g. PITWALL_SERVER__PASSWORD, PITWALL_SERVER__HOST.
+# Secrets (passwords, tokens) go in the environment or in .env — never in this file.
+
+[server]
+host = "127.0.0.1"
+port = 5000                 # XML-RPC port of the dedicated server
+user = "SuperAdmin"
+# password = "..."          # → set PITWALL_SERVER__PASSWORD instead
+api_version = "2023-04-24"
+call_timeout_secs = 10
+reconnect_delay_secs = 2
+max_reconnect_delay_secs = 30
+matchsettings_dir = "MatchSettings/PitWall"
+
+[controller]
+default_lang = "fr"         # fr | en
+announce_joins = true
+formats_dir = "config/formats"
+data_dir = "data"
+console = true              # read commands on stdin (type `help`)
+
+[roles]
+# Trackmania logins (the short id shown on trackmania.io, not the display name).
+superadmins = []
+admins = []
+referees = []
+casters = []
+
+[log]
+filter = "info"             # e.g. "info,pitwall::events=debug"; RUST_LOG overrides it
+format = "pretty"           # pretty | json
+
+[plugins.logger]
+skip = ["checkpoint", "callback"]
