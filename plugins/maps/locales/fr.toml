@@ -1,0 +1,16 @@
+[maps]
+downloading = "$aaaTéléchargement de {what}…"
+added = "$0f0Map ajoutée : $fff{name}$z$s$0f0 ({file})"
+queued = "$0f0{name}$z$s$0f0 sera jouée ensuite."
+failed = "$f44Erreur map : {message}"
+search_entry = "$0af{id}$fff {name}$z$s $888par {author}"
+search_none = "$f80Aucune map trouvée."
+list_entry = "$888{index}. $fff{name}$z$s $888{file}"
+local_entry = "$888- $fff{file}"
+local_none = "$f80Aucun fichier .Map.Gbx dans {dir}."
+removed = "$0f0Map retirée."
+campaign = "$0afImport de {count} maps depuis {name}…"
+no_nadeo = "$f80API Nadeo non configurée (PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)."
+
+[maps.cmd]
+map = "Maps : tmx <id|url> [next], search <nom>, uid <uid> [next], club <club> <campagne>, local [fichier], list, remove [fichier]"

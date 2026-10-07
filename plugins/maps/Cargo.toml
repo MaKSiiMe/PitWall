@@ -1,0 +1,24 @@
+[package]
+name = "pitwall-plugin-maps"
+description = "PitWall internal plugin: maps from Trackmania Exchange, Nadeo clubs/campaigns and local files."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+pitwall-core.workspace = true
+pitwall-integrations.workspace = true
+pitwall-storage.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+pitwall-gbx = { workspace = true, features = ["mock"] }
+pitwall-integrations.workspace = true
+tokio-util.workspace = true

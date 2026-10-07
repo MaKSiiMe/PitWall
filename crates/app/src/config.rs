@@ -18,6 +18,9 @@ pub struct Config {
     pub controller: ControllerSection,
     pub roles: RolesConfig,
     pub log: LogSection,
+    pub nadeo: NadeoSection,
+    pub discord: DiscordSection,
+    pub api: ApiSection,
     /// `[plugins.<name>]` sections, passed to each plugin.
     pub plugins: toml::Table,
 }
@@ -35,6 +38,8 @@ pub struct ControllerSection {
     pub cups_dir: PathBuf,
     /// Directory for runtime data (database, exports).
     pub data_dir: PathBuf,
+    /// Local `.Map.Gbx` files that `/map local` can upload.
+    pub maps_dir: PathBuf,
     /// Read commands from stdin.
     pub console: bool,
 }
@@ -47,7 +52,57 @@ impl Default for ControllerSection {
             formats_dir: PathBuf::from("config/formats"),
             cups_dir: PathBuf::from("config/cups"),
             data_dir: PathBuf::from("data"),
+            maps_dir: PathBuf::from("config/maps"),
             console: true,
+        }
+    }
+}
+
+/// Nadeo web services, with the dedicated server account (`PITWALL_NADEO__LOGIN` / `__PASSWORD`).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct NadeoSection {
+    pub login: String,
+    pub password: String,
+}
+
+/// Discord webhook (`PITWALL_DISCORD__WEBHOOK_URL`).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct DiscordSection {
+    pub webhook_url: String,
+    pub username: String,
+}
+
+impl Default for DiscordSection {
+    fn default() -> Self {
+        Self {
+            webhook_url: String::new(),
+            username: "PitWall".to_owned(),
+        }
+    }
+}
+
+/// Web dashboard and API.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct ApiSection {
+    pub enabled: bool,
+    /// Listen address; keep it on localhost unless a reverse proxy adds TLS.
+    pub bind: String,
+    /// Admin token (`PITWALL_API__ADMIN_TOKEN`); empty disables admin pages.
+    pub admin_token: String,
+    /// Public base URL shown in links (registration page).
+    pub public_url: String,
+}
+
+impl Default for ApiSection {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            bind: "127.0.0.1:8080".to_owned(),
+            admin_token: String::new(),
+            public_url: String::new(),
         }
     }
 }

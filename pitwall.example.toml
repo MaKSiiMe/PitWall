@@ -19,6 +19,7 @@ default_lang = "fr"         # fr | en
 announce_joins = true
 formats_dir = "config/formats"
 cups_dir = "config/cups"
+maps_dir = "config/maps"     # local .Map.Gbx files for /map local
 data_dir = "data"
 console = true              # read commands on stdin (type `help`)
 
@@ -29,9 +30,33 @@ admins = []
 referees = []
 casters = []
 
+[api]
+enabled = true
+bind = "127.0.0.1:8080"     # web dashboard; keep on localhost behind a reverse proxy
+# admin_token = "..."       # → set PITWALL_API__ADMIN_TOKEN instead
+public_url = ""             # e.g. https://cup.example.org (registration links)
+
+[nadeo]
+# Dedicated server account, for /map uid and /map club:
+# PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD
+
+[discord]
+# webhook_url = "..."       # → set PITWALL_DISCORD__WEBHOOK_URL instead
+username = "PitWall"
+
 [log]
 filter = "info"             # e.g. "info,pitwall::events=debug"; RUST_LOG overrides it
 format = "pretty"           # pretty | json
 
 [plugins.logger]
 skip = ["checkpoint", "callback"]
+
+# In-game widgets: theme and positions (x ∈ [-160, 160], y ∈ [-90, 90], top-left corner).
+[plugins.ui.theme]
+accent = "0af"
+background = "111"
+background_opacity = 0.75
+
+[plugins.ui.layout]
+max_rows = 12
+# positions = { ranking = { x = 116.0, y = 62.0 }, records = { x = -160.0, y = 62.0 } }

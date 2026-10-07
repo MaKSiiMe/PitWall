@@ -43,6 +43,8 @@ enum AppError {
     Core(#[from] pitwall_core::CoreError),
     #[error("cannot open the database: {0}")]
     Storage(#[from] pitwall_storage::StorageError),
+    #[error(transparent)]
+    Integration(pitwall_integrations::IntegrationError),
 }
 
 fn init_logs(config: &Config) {
@@ -96,6 +98,35 @@ async fn run(cli: Cli) -> Result<(), AppError> {
     );
     controller.add_plugin(cup_plugin);
     controller.add_plugin(pitwall_plugin_storage::StoragePlugin::new(storage.clone()));
+    let http = pitwall_integrations::http_client().map_err(AppError::Integration)?;
+    let nadeo = match pitwall_integrations::nadeo::Nadeo::new(
+        http.clone(),
+        &config.nadeo.login,
+        &config.nadeo.password,
+    ) {
+        Ok(nadeo) => Some(nadeo),
+        Err(_) => {
+            tracing::info!(
+                "Nadeo API disabled (set PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)"
+            );
+            None
+        }
+    };
+    controller.add_plugin(pitwall_plugin_maps::MapsPlugin::new(
+        pitwall_integrations::tmx::Tmx::new(http.clone()),
+        nadeo,
+        Some(storage.clone()),
+        config.controller.maps_dir.clone(),
+    ));
+    if !config.discord.webhook_url.is_empty() {
+        let webhook = pitwall_integrations::discord::Webhook::new(
+            http.clone(),
+            &config.discord.webhook_url,
+            &config.discord.username,
+        )
+        .map_err(AppError::Integration)?;
+        controller.add_plugin(pitwall_plugin_discord::DiscordPlugin::new(webhook));
+    }
     controller.add_plugin(pitwall_plugin_ui::UiPlugin::new(
         Arc::clone(&formats),
         config.controller.data_dir.clone(),
