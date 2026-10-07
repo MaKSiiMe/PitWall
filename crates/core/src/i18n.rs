@@ -3,14 +3,16 @@
 //! Catalogs are flat TOML tables (`key = "text with {placeholders}"`). Core ships its own catalog;
 //! plugins add theirs at startup. Missing keys fall back to English, then to the key itself.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 
 /// Supported languages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum Lang {
     #[default]
@@ -49,7 +51,8 @@ impl fmt::Display for Lang {
     }
 }
 
-/// A text to show to someone: either verbatim or a translation key with arguments.
+/// A text to show to someone: verbatim, a translation key with arguments, or a text given in
+/// several languages (names written in configuration files).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Text {
@@ -57,8 +60,9 @@ pub enum Text {
     Key {
         key: String,
         #[serde(default)]
-        args: Vec<(String, String)>,
+        args: Vec<(String, Text)>,
     },
+    Localized(BTreeMap<Lang, String>),
 }
 
 impl Text {
@@ -75,10 +79,26 @@ impl Text {
         }
     }
 
-    /// Adds a `{name}` argument (no-op on raw texts).
-    pub fn arg(mut self, name: impl Into<String>, value: impl ToString) -> Text {
+    /// The same text given per language (empty values are ignored).
+    pub fn localized(en: impl Into<String>, fr: impl Into<String>) -> Text {
+        let mut map = BTreeMap::new();
+        for (lang, value) in [(Lang::En, en.into()), (Lang::Fr, fr.into())] {
+            if !value.is_empty() {
+                map.insert(lang, value);
+            }
+        }
+        Text::Localized(map)
+    }
+
+    /// Adds a `{name}` argument (no-op on non-key texts).
+    pub fn arg(self, name: impl Into<String>, value: impl ToString) -> Text {
+        self.arg_text(name, Text::Raw(value.to_string()))
+    }
+
+    /// Adds a `{name}` argument that is itself translated.
+    pub fn arg_text(mut self, name: impl Into<String>, value: Text) -> Text {
         if let Text::Key { args, .. } = &mut self {
-            args.push((name.into(), value.to_string()));
+            args.push((name.into(), value));
         }
         self
     }
@@ -142,17 +162,32 @@ impl Translator {
     pub fn render(&self, lang: Lang, text: &Text) -> String {
         match text {
             Text::Raw(s) => s.clone(),
+            Text::Localized(map) => map
+                .get(&lang)
+                .or_else(|| map.get(&Lang::En))
+                .or_else(|| map.values().next())
+                .cloned()
+                .unwrap_or_default(),
             Text::Key { key, args } => {
-                let catalogs = self
-                    .catalogs
-                    .read()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let template = catalogs
-                    .get(&lang)
-                    .and_then(|c| c.get(key))
-                    .or_else(|| catalogs.get(&Lang::En).and_then(|c| c.get(key)));
+                let template = {
+                    let catalogs = self
+                        .catalogs
+                        .read()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    catalogs
+                        .get(&lang)
+                        .and_then(|c| c.get(key))
+                        .or_else(|| catalogs.get(&Lang::En).and_then(|c| c.get(key)))
+                        .cloned()
+                };
                 match template {
-                    Some(template) => substitute(template, args),
+                    Some(template) => {
+                        let rendered: Vec<(String, String)> = args
+                            .iter()
+                            .map(|(name, value)| (name.clone(), self.render(lang, value)))
+                            .collect();
+                        substitute(&template, &rendered)
+                    }
                     None => {
                         tracing::debug!(key, %lang, "missing translation");
                         key.clone()
@@ -227,6 +262,23 @@ mod tests {
         // Missing everywhere → the key.
         assert_eq!(t.t(Lang::Fr, "nope"), "nope");
         assert_eq!(t.render(Lang::Fr, &Text::raw("as is")), "as is");
+        let phase =
+            Text::tr("hello").arg_text("name", Text::localized("Qualifiers", "Qualifications"));
+        assert_eq!(t.render(Lang::Fr, &phase), "Bonjour Qualifications");
+        assert_eq!(t.render(Lang::En, &phase), "Hello Qualifiers");
+        assert_eq!(
+            t.render(Lang::Fr, &Text::localized("Only EN", "")),
+            "Only EN"
+        );
+    }
+
+    #[test]
+    fn texts_round_trip_through_json() {
+        let text = Text::tr("a")
+            .arg("x", 1)
+            .arg_text("y", Text::localized("en", "fr"));
+        let json = serde_json::to_string(&text).unwrap();
+        assert_eq!(serde_json::from_str::<Text>(&json).unwrap(), text);
     }
 
     #[test]
