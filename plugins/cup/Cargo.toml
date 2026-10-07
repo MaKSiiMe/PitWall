@@ -1,0 +1,26 @@
+[package]
+name = "pitwall-plugin-cup"
+description = "PitWall internal plugin: runs cups (phases, registrations, ready checks, placement)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+pitwall-core.workspace = true
+pitwall-formats.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+toml.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+pitwall-core = { workspace = true }
+pitwall-gbx = { workspace = true, features = ["mock"] }
+tokio-util.workspace = true
+
+[lints]
+workspace = true

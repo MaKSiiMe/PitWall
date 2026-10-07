@@ -31,6 +31,8 @@ pub struct ControllerSection {
     pub announce_joins: bool,
     /// Directory of custom format definitions (`*.toml`).
     pub formats_dir: PathBuf,
+    /// Directory of cup definitions (`*.toml` + Lua rules).
+    pub cups_dir: PathBuf,
     /// Directory for runtime data (database, exports).
     pub data_dir: PathBuf,
     /// Read commands from stdin.
@@ -43,6 +45,7 @@ impl Default for ControllerSection {
             default_lang: Lang::En,
             announce_joins: true,
             formats_dir: PathBuf::from("config/formats"),
+            cups_dir: PathBuf::from("config/cups"),
             data_dir: PathBuf::from("data"),
             console: true,
         }

@@ -21,6 +21,7 @@ pitwall-storage = { path = "crates/storage" }
 pitwall-plugin-logger = { path = "plugins/logger" }
 pitwall-plugin-formats = { path = "plugins/formats" }
 pitwall-plugin-admin = { path = "plugins/admin" }
+pitwall-plugin-cup = { path = "plugins/cup" }
 
 # Async runtime
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "io-util", "io-std", "sync", "time", "signal"] }

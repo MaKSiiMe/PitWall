@@ -589,6 +589,7 @@ dependencies = [
  "pitwall-core",
  "pitwall-formats",
  "pitwall-plugin-admin",
+ "pitwall-plugin-cup",
  "pitwall-plugin-formats",
  "pitwall-plugin-logger",
  "serde",
@@ -655,6 +656,22 @@ version = "0.1.0"
 dependencies = [
  "pitwall-core",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pitwall-plugin-cup"
+version = "0.1.0"
+dependencies = [
+ "pitwall-core",
+ "pitwall-formats",
+ "pitwall-gbx",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "toml 1.1.6+spec-1.1.0",
  "tracing",
 ]
 

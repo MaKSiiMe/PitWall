@@ -259,6 +259,36 @@ pub struct CupState {
     pub finished_at: Option<i64>,
 }
 
+/// Read-only view of a cup for the UI, the API and the overlay.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CupSnapshot {
+    pub id: String,
+    pub name: crate::format::Localized,
+    pub kind: CupKind,
+    pub status: CupStatus,
+    pub phase: Option<PhaseInfo>,
+    pub phase_count: usize,
+    pub participants: Vec<Participant>,
+    pub results: Vec<PhaseResult>,
+    /// Logins racing right now.
+    pub racing: Vec<String>,
+    pub ready: Vec<String>,
+    pub deadline_ms: Option<i64>,
+    pub bracket: Option<Bracket>,
+    pub current_match: Option<(usize, usize)>,
+    pub cup_points: BTreeMap<String, i64>,
+    pub registration: Vec<RegistrationMode>,
+}
+
+/// Current phase summary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PhaseInfo {
+    pub index: usize,
+    pub id: String,
+    pub name: crate::format::Localized,
+    pub format: String,
+}
+
 /// The cup engine.
 #[derive(Debug, Clone)]
 pub struct CupEngine {
@@ -328,6 +358,36 @@ impl CupEngine {
 
     pub fn state(&self) -> &CupState {
         &self.state
+    }
+
+    /// A read-only view for the UI and the API.
+    pub fn snapshot(&self) -> CupSnapshot {
+        let state = &self.state;
+        CupSnapshot {
+            id: state.def.id.clone(),
+            name: state.def.name.clone(),
+            kind: state.def.kind,
+            status: state.status,
+            phase: state.status.phase().and_then(|index| {
+                let p = state.def.phases.get(index)?;
+                Some(PhaseInfo {
+                    index,
+                    id: p.id.clone(),
+                    name: p.name.clone(),
+                    format: p.format.clone(),
+                })
+            }),
+            phase_count: state.def.phases.len(),
+            participants: state.participants.clone(),
+            results: state.results.clone(),
+            racing: self.racing_logins(),
+            ready: state.ready.iter().cloned().collect(),
+            deadline_ms: state.deadline_ms,
+            bracket: state.bracket.clone(),
+            current_match: state.current_match,
+            cup_points: state.cup_points.clone(),
+            registration: state.def.registration.clone(),
+        }
     }
 
     pub fn def(&self) -> &CupDef {

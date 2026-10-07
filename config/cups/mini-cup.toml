@@ -1,0 +1,25 @@
+# Mini cup for 8 friends: 10 min of Time Attack to seed, then a Cup final for the top 4.
+#   /cup load mini-cup   → /cup open (players type /join) → /cup start → /cup go
+id = "mini-cup"
+name = { en = "Mini Cup #1", fr = "Mini Cup #1" }
+registration = ["list", "ingame"]   # list = logins below + /cup add; ingame = /join
+participants = []                  # Trackmania logins, e.g. ["v8nPZ1fXRHyuWmHVKx3dYw"]
+max_participants = 8
+start = "ready_check"              # manual | ready_check | auto
+ready_timeout_secs = 90
+disconnect = { policy = "pause", grace_secs = 120 }
+lock_server = true                 # non-participants spectate
+
+[[phase]]
+id = "quali"
+name = { en = "Qualifiers", fr = "Qualifications" }
+format = "timeattack"
+settings = { S_TimeLimit = 600 }
+qualify = { top = 4 }
+
+[[phase]]
+id = "final"
+name = { en = "Final", fr = "Finale" }
+format = "mini-cup"                # custom format from config/formats/mini-cup.toml
+start = "auto"
+delay_before_secs = 20

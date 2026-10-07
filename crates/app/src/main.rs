@@ -10,6 +10,7 @@ use std::sync::{Arc, RwLock};
 use clap::Parser;
 use pitwall_core::{Controller, ControllerOptions, RoleBook, Translator};
 use pitwall_formats::FormatRegistry;
+use pitwall_formats::cup::CupLibrary;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -35,6 +36,8 @@ enum AppError {
     #[error(transparent)]
     Formats(#[from] pitwall_formats::FormatError),
     #[error(transparent)]
+    Cups(#[from] pitwall_formats::cup::LibraryError),
+    #[error(transparent)]
     Catalog(#[from] pitwall_core::i18n::CatalogError),
     #[error(transparent)]
     Core(#[from] pitwall_core::CoreError),
@@ -57,9 +60,15 @@ async fn run(cli: Cli) -> Result<(), AppError> {
 
     let formats = FormatRegistry::load(Some(&config.controller.formats_dir))?;
     tracing::info!(count = formats.all().count(), "formats loaded");
+    let cups = CupLibrary::load(&config.controller.cups_dir, &formats)?;
+    tracing::info!(count = cups.all().count(), "cups loaded");
     let translator = Translator::with_core_catalogs()?;
     if cli.check {
-        println!("Configuration OK ({} formats).", formats.all().count());
+        println!(
+            "Configuration OK ({} formats, {} cups).",
+            formats.all().count(),
+            cups.all().count()
+        );
         return Ok(());
     }
 
@@ -76,6 +85,12 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         &formats,
     )));
     controller.add_plugin(pitwall_plugin_admin::AdminPlugin);
+    let (cup_plugin, _cup_handle) = pitwall_plugin_cup::CupPlugin::new(
+        Arc::clone(&formats),
+        Arc::new(RwLock::new(cups)),
+        config.controller.data_dir.clone(),
+    );
+    controller.add_plugin(cup_plugin);
 
     let shutdown = CancellationToken::new();
     tokio::spawn(wait_for_signal(shutdown.clone()));

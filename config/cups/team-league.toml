@@ -1,0 +1,28 @@
+# Team tournament: 4 teams, single elimination bracket of 2v2 matches (TMWT format).
+id = "team-league"
+name = { en = "Team League", fr = "Ligue par équipes" }
+kind = "teams"
+registration = ["list", "web"]
+approval = true
+start = "ready_check"
+rules = "team-league.lua"
+
+[[teams]]
+id = "blue-wings"
+name = "Blue Wings"
+tag = "BW"
+color = "0af"
+players = []
+
+[[teams]]
+id = "red-shift"
+name = "Red Shift"
+tag = "RS"
+color = "f44"
+players = []
+
+[[phase]]
+id = "playoffs"
+name = { en = "Playoffs", fr = "Phase finale" }
+format = "tmwt"
+kind = "bracket"

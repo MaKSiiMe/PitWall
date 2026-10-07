@@ -18,6 +18,7 @@ matchsettings_dir = "MatchSettings/PitWall"
 default_lang = "fr"         # fr | en
 announce_joins = true
 formats_dir = "config/formats"
+cups_dir = "config/cups"
 data_dir = "data"
 console = true              # read commands on stdin (type `help`)
 
