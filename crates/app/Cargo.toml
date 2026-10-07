@@ -15,6 +15,7 @@ pitwall-core.workspace = true
 pitwall-formats.workspace = true
 pitwall-plugin-admin.workspace = true
 pitwall-plugin-cup.workspace = true
+pitwall-plugin-ui.workspace = true
 pitwall-plugin-formats.workspace = true
 pitwall-plugin-logger.workspace = true
 serde.workspace = true

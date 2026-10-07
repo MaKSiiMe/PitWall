@@ -1,0 +1,11 @@
+<manialink id="{{ id }}" version="3" name="PitWall:AdminPanel">
+<frame pos="{{ x }} {{ y }}" z-index="10">
+	<quad pos="0 -5" z-index="0" size="{{ width }} {{ body_height }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="0" size="{{ width }} 5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="1" size="0.6 5" bgcolor="{{ theme.accent }}"/>
+	<label pos="2.5 -2.5" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.text }}" text="{{ title }}"/>
+{%- for button in buttons %}
+	<label pos="{{ button.x }} -{{ button.y }}" z-index="2" size="{{ button_width }} 4.4" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.text }}" text="{{ button.label }}" action="{{ button.action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+{%- endfor %}
+</frame>
+</manialink>

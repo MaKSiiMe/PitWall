@@ -91,6 +91,10 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         config.controller.data_dir.clone(),
     );
     controller.add_plugin(cup_plugin);
+    controller.add_plugin(pitwall_plugin_ui::UiPlugin::new(
+        Arc::clone(&formats),
+        config.controller.data_dir.clone(),
+    ));
 
     let shutdown = CancellationToken::new();
     tokio::spawn(wait_for_signal(shutdown.clone()));

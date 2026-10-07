@@ -1,0 +1,87 @@
+<manialink id="{{ id }}" version="3" name="PitWall:CupInfo">
+<frame pos="{{ x }} {{ y }}" z-index="10" id="cup" hidden="1">
+	<quad pos="0 0" z-index="0" size="90 9.5" halign="center" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 -9.5" z-index="1" size="90 0.5" halign="center" bgcolor="{{ theme.accent }}"/>
+	<label pos="0 -3" z-index="2" size="86 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.6" textcolor="{{ theme.text }}" id="cup-name"/>
+	<label pos="0 -7" z-index="2" size="86 4" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.muted }}" id="cup-phase"/>
+	<frame pos="0 -12" z-index="2" id="ready" hidden="1">
+		<quad pos="0 0" z-index="0" size="34 7" halign="center" bgcolor="{{ theme.accent }}" scriptevents="1" id="ready-btn"/>
+		<label pos="0 -3.5" z-index="1" size="32 6" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.6" textcolor="{{ theme.text }}" id="ready-label"/>
+		<label pos="0 -9" z-index="1" size="40 4" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" id="ready-count"/>
+	</frame>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+
+#Struct K_Data {
+	Text cup;
+	Text phase;
+	Text status;
+	Boolean ready_check;
+	Text[] ready_logins;
+	Text[] ready_done;
+	Integer remaining_ms;
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Integer LastSerial = -1;
+	declare K_Data Info;
+	declare Integer ReadyEnd = 0;
+	declare Boolean IAmReady = False;
+	declare CMlFrame Root <=> (Page.GetFirstChild("cup") as CMlFrame);
+	declare CMlFrame Ready <=> (Page.GetFirstChild("ready") as CMlFrame);
+	declare CMlLabel LabelName <=> (Page.GetFirstChild("cup-name") as CMlLabel);
+	declare CMlLabel LabelPhase <=> (Page.GetFirstChild("cup-phase") as CMlLabel);
+	declare CMlLabel LabelReady <=> (Page.GetFirstChild("ready-label") as CMlLabel);
+	declare CMlLabel LabelCount <=> (Page.GetFirstChild("ready-count") as CMlLabel);
+	declare CMlQuad ReadyButton <=> (Page.GetFirstChild("ready-btn") as CMlQuad);
+
+	while (True) {
+		yield;
+		if (LastSerial != {{ prefix }}_Serial) {
+			LastSerial = {{ prefix }}_Serial;
+			declare K_Data Data;
+			if (Data.fromjson({{ prefix }}_Json)) {
+				Info = Data;
+				ReadyEnd = Now + Info.remaining_ms;
+				if (Info.cup == "") {
+					Root.Visible = False;
+				} else {
+					LabelName.Value = Info.cup;
+					LabelPhase.Value = Info.phase^"  ·  "^Info.status;
+					if (!Root.Visible) {
+						Root.RelativePosition_V3 = <{{ x }}, {{ y_hidden }}>;
+						Root.Visible = True;
+						AnimMgr.Add(Root, "<anim pos=\"{{ x }} {{ y }}\" />", 400, CAnimManager::EAnimManagerEasing::QuadOut);
+					}
+				}
+				IAmReady = Info.ready_done.exists(LocalUser.Login);
+				Ready.Visible = Info.ready_check && Info.ready_logins.exists(LocalUser.Login);
+				LabelCount.Value = "{{ ready_count_label|safe }} "^Info.ready_done.count^"/"^Info.ready_logins.count;
+				if (IAmReady) {
+					ReadyButton.BgColor = {{ good_vec3|safe }};
+				} else {
+					ReadyButton.BgColor = {{ accent_vec3|safe }};
+				}
+			}
+		}
+		if (Ready.Visible) {
+			declare Integer Left = (ReadyEnd - Now) / 1000;
+			if (Left < 0) Left = 0;
+			if (IAmReady) {
+				LabelReady.Value = "{{ ready_done_label|safe }}";
+			} else {
+				LabelReady.Value = "{{ ready_label|safe }} ("^Left^")";
+			}
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.Type == CMlScriptEvent::Type::MouseClick && Event.ControlId == "ready-btn" && !IAmReady) {
+				TriggerPageAction("pw:cup:ready");
+			}
+		}
+	}
+}
+--></script>
+</manialink>

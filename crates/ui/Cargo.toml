@@ -1,6 +1,6 @@
 [package]
 name = "pitwall-ui"
-description = "Manialink rendering and per-player UI state."
+description = "Manialink rendering (askama templates + ManiaScript) and per-player UI state."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,15 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+askama.workspace = true
+pitwall-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+quick-xml.workspace = true
+toml.workspace = true
 
 [lints]
 workspace = true

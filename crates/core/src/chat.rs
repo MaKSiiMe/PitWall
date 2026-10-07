@@ -196,6 +196,60 @@ impl CommandRegistry {
     }
 }
 
+/// What [`dispatch`] needs.
+#[derive(Debug, Clone, Copy)]
+pub struct Dispatcher<'a> {
+    pub registry: &'a CommandRegistry,
+    pub bus: &'a crate::plugin::EventBus,
+    pub i18n: &'a crate::i18n::Translator,
+    /// Used to answer players (unknown command, permission denied).
+    pub commands: &'a crate::command::CommandHandle,
+}
+
+/// Parses a command line (leading `/` optional), checks the role and publishes an
+/// [`crate::Event::Command`], or answers the invoker with an error.
+pub fn dispatch(
+    d: &Dispatcher<'_>,
+    actor: Actor,
+    role: Role,
+    lang: Lang,
+    line: &str,
+    reply: ReplyTo,
+) {
+    use crate::i18n::Text;
+    let line = line.trim();
+    let line = if line.starts_with('/') {
+        line.to_owned()
+    } else {
+        format!("/{line}")
+    };
+    let Some((name, args, raw_args)) = parse_command_line(&line) else {
+        return;
+    };
+    let say = |text: Text| match &reply {
+        ReplyTo::Player(login) => d.commands.chat_to(login, text),
+        ReplyTo::Channel(tx) => {
+            let _ = tx.send(d.i18n.render(lang, &text));
+        }
+        ReplyTo::Nowhere => {}
+    };
+    match d.registry.resolve(&name, role) {
+        Resolution::Allowed(spec) => d.bus.publish(crate::Event::Command {
+            invocation: Invocation {
+                actor,
+                role,
+                lang,
+                name: spec.name,
+                args,
+                raw_args,
+                reply,
+            },
+        }),
+        Resolution::Denied(spec) => say(Text::tr("core.permission_denied").arg("name", spec.name)),
+        Resolution::Unknown => say(Text::tr("core.unknown_command").arg("name", name)),
+    }
+}
+
 /// Splits `/name arg1 arg2` into `(name, args, raw_args)`. Accepts `//name` too.
 /// Double quotes group words: `/kick bob "afk too long"`.
 pub fn parse_command_line(text: &str) -> Option<(String, Vec<String>, String)> {

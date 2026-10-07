@@ -287,6 +287,8 @@ pub struct PhaseInfo {
     pub id: String,
     pub name: crate::format::Localized,
     pub format: String,
+    /// `Some(n)` when the first n qualify (ranking cutline).
+    pub qualify_top: Option<usize>,
 }
 
 /// The cup engine.
@@ -375,6 +377,10 @@ impl CupEngine {
                     id: p.id.clone(),
                     name: p.name.clone(),
                     format: p.format.clone(),
+                    qualify_top: match p.qualify {
+                        Qualify::Top(n) => Some(n),
+                        _ => None,
+                    },
                 })
             }),
             phase_count: state.def.phases.len(),

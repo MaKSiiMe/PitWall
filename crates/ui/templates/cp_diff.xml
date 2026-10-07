@@ -1,0 +1,80 @@
+<manialink id="{{ id }}" version="3" name="PitWall:CpDiff">
+<frame pos="{{ x }} {{ y }}" z-index="10" id="cpdiff" hidden="1">
+	<quad pos="0 0" z-index="0" size="26 6.5" halign="center" valign="center" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="-13 0" z-index="1" size="0.8 6.5" valign="center" bgcolor="{{ theme.accent }}" id="cpdiff-bar"/>
+	<label pos="0 1" z-index="2" size="24 5" halign="center" valign="center2" textfont="OswaldMono" textsize="2.4" textcolor="{{ theme.text }}" id="cpdiff-value"/>
+	<label pos="0 -2.4" z-index="2" size="24 3" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="0.7" textcolor="{{ theme.muted }}" id="cpdiff-ref"/>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+
+#Const C_DisplayMs 3500
+
+#Struct K_Data {
+	Text name;
+	Integer[] cps;
+}
+
+Text FormatDiff(Integer _Diff) {
+	declare Integer Abs = _Diff;
+	declare Text Sign = "-";
+	if (_Diff > 0) {
+		Sign = "+";
+	} else {
+		Abs = -_Diff;
+	}
+	return Sign^(Abs / 1000)^"."^TL::FormatInteger(Abs % 1000, 3);
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Integer LastSerial = -1;
+	declare K_Data Ref;
+	declare Integer LastCount = -1;
+	declare Integer HideAt = 0;
+	declare CMlFrame Root <=> (Page.GetFirstChild("cpdiff") as CMlFrame);
+	declare CMlLabel LabelValue <=> (Page.GetFirstChild("cpdiff-value") as CMlLabel);
+	declare CMlLabel LabelRef <=> (Page.GetFirstChild("cpdiff-ref") as CMlLabel);
+	declare CMlQuad Bar <=> (Page.GetFirstChild("cpdiff-bar") as CMlQuad);
+
+	while (True) {
+		yield;
+		if (LastSerial != {{ prefix }}_Serial) {
+			LastSerial = {{ prefix }}_Serial;
+			declare K_Data Data;
+			if (Data.fromjson({{ prefix }}_Json)) Ref = Data;
+		}
+		if (GUIPlayer == Null) {
+			Root.Visible = False;
+			LastCount = -1;
+			continue;
+		}
+		declare Integer Count = GUIPlayer.RaceWaypointTimes.count;
+		if (Count != LastCount) {
+			LastCount = Count;
+			if (Count > 0 && Count <= Ref.cps.count && GUIPlayer.RaceWaypointTimes[Count - 1] > 0) {
+				declare Integer Diff = GUIPlayer.RaceWaypointTimes[Count - 1] - Ref.cps[Count - 1];
+				LabelValue.Value = FormatDiff(Diff);
+				if (Diff > 0) {
+					LabelValue.TextColor = {{ bad_vec3|safe }};
+					Bar.BgColor = {{ bad_vec3|safe }};
+				} else {
+					LabelValue.TextColor = {{ good_vec3|safe }};
+					Bar.BgColor = {{ good_vec3|safe }};
+				}
+				LabelRef.Value = "{{ vs_label|safe }} "^Ref.name;
+				AnimMgr.Flush(Root);
+				Root.RelativeScale = 1.25;
+				Root.Visible = True;
+				AnimMgr.Add(Root, "<anim scale=\"1.\" />", 250, CAnimManager::EAnimManagerEasing::BackOut);
+				HideAt = Now + C_DisplayMs;
+			} else if (Count == 0) {
+				Root.Visible = False;
+			}
+		}
+		if (Root.Visible && Now > HideAt) Root.Visible = False;
+	}
+}
+--></script>
+</manialink>

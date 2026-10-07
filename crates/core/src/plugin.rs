@@ -128,6 +128,46 @@ impl PluginContext {
         self.commands.as_actor(invocation.actor.clone())
     }
 
+    /// Runs a command line as `actor` (role-checked), e.g. a click on an admin button.
+    pub fn invoke(
+        &self,
+        actor: Actor,
+        role: crate::roles::Role,
+        lang: Lang,
+        line: &str,
+        reply: ReplyTo,
+    ) {
+        crate::chat::dispatch(
+            &crate::chat::Dispatcher {
+                registry: &self.registry,
+                bus: &self.bus,
+                i18n: &self.i18n,
+                commands: &self.commands,
+            },
+            actor,
+            role,
+            lang,
+            line,
+            reply,
+        );
+    }
+
+    /// Runs a command line as a connected player, with their role and language.
+    pub fn invoke_as_player(&self, login: &str, line: &str) {
+        let role = self.roles.get(login);
+        let lang = self
+            .state
+            .read(|s| s.lang_of(login))
+            .unwrap_or(self.default_lang);
+        self.invoke(
+            Actor::Player(login.to_owned()),
+            role,
+            lang,
+            line,
+            ReplyTo::Player(login.to_owned()),
+        );
+    }
+
     /// Publishes a custom event from this plugin.
     pub fn emit(&self, name: &str, payload: serde_json::Value) {
         self.bus.publish(Event::custom(self.name, name, payload));

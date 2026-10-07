@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 use crate::builtin::CorePlugin;
-use crate::chat::{CommandRegistry, Invocation, ReplyTo, Resolution, parse_command_line};
+use crate::chat::{CommandRegistry, ReplyTo, parse_command_line};
 use crate::command::{
     Command, CommandError, CommandHandle, CommandRequest, ModeSwitch, Recipients,
 };
@@ -111,39 +111,19 @@ impl Handles {
 
     /// Parses and dispatches a command line (`/mode cup`; the leading slash is optional here).
     pub fn invoke(&self, actor: Actor, role: Role, lang: Lang, line: &str, reply: ReplyTo) {
-        let line = line.trim();
-        let line = if line.starts_with('/') {
-            line.to_owned()
-        } else {
-            format!("/{line}")
-        };
-        let Some((name, args, raw_args)) = parse_command_line(&line) else {
-            return;
-        };
-        let say = |text: Text| match &reply {
-            ReplyTo::Player(login) => self.commands(Actor::System).chat_to(login, text),
-            ReplyTo::Channel(tx) => {
-                let _ = tx.send(self.i18n.render(lang, &text));
-            }
-            ReplyTo::Nowhere => {}
-        };
-        match self.registry.resolve(&name, role) {
-            Resolution::Allowed(spec) => self.bus.publish(Event::Command {
-                invocation: Invocation {
-                    actor,
-                    role,
-                    lang,
-                    name: spec.name,
-                    args,
-                    raw_args,
-                    reply,
-                },
-            }),
-            Resolution::Denied(spec) => {
-                say(Text::tr("core.permission_denied").arg("name", spec.name))
-            }
-            Resolution::Unknown => say(Text::tr("core.unknown_command").arg("name", name)),
-        }
+        crate::chat::dispatch(
+            &crate::chat::Dispatcher {
+                registry: &self.registry,
+                bus: &self.bus,
+                i18n: &self.i18n,
+                commands: &self.commands(Actor::System),
+            },
+            actor,
+            role,
+            lang,
+            line,
+            reply,
+        );
     }
 }
 

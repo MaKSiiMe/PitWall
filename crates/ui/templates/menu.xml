@@ -1,0 +1,7 @@
+<manialink id="{{ id }}" version="3" name="PitWall:Menu">
+<frame pos="{{ x }} {{ y }}" z-index="10">
+{%- for button in buttons %}
+	<label pos="{{ button.x }} 0" z-index="2" size="{{ button.width }} 4" halign="left" valign="center2" textfont="GameFontSemiBold" textsize="0.8" textcolor="{% if button.on %}{{ theme.text }}{% else %}{{ theme.muted }}{% endif %}" text="{{ button.label }}" action="{{ button.action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+{%- endfor %}
+</frame>
+</manialink>

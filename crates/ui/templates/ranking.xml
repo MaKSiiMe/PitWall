@@ -1,0 +1,151 @@
+<manialink id="{{ id }}" version="3" name="PitWall:Ranking">
+<frame pos="{{ x }} {{ y }}" z-index="10">
+	<quad pos="0 0" z-index="0" size="{{ width }} 5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="1" size="0.6 5" bgcolor="{{ theme.accent }}"/>
+	<label pos="2.5 -2.5" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.text }}" text="{{ title }}"/>
+	<frame pos="0 -5.5" z-index="1">
+		<quad pos="0 0" z-index="5" size="{{ width }} 0.4" bgcolor="{{ theme.bad }}" id="cutline" hidden="1"/>
+{%- for i in 0..max_rows %}
+		<frame pos="0 0" z-index="1" id="row-{{ i }}" hidden="1">
+			<quad pos="0 0" z-index="0" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+			<quad pos="0 0" z-index="1" size="0.6 {{ row_inner }}" bgcolor="{{ theme.accent }}" id="row-{{ i }}-hl" hidden="1"/>
+			<label pos="3.2 -{{ row_half }}" z-index="2" size="5 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" id="row-{{ i }}-rank"/>
+			<label pos="6.5 -{{ row_half }}" z-index="2" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-name"/>
+			<label pos="{{ value_x }} -{{ row_half }}" z-index="2" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-value"/>
+		</frame>
+{%- endfor %}
+	</frame>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+#Const C_MaxRows {{ max_rows }}
+#Const C_RowHeight {{ row_height }}
+#Const C_AnimMs 350
+
+#Struct K_Row {
+	Text login;
+	Text name;
+	Integer rank;
+	Integer time;
+	Integer points;
+	Integer gap;
+	Boolean finished;
+}
+
+#Struct K_Data {
+	Text mode;
+	Integer cutline;
+	K_Row[] rows;
+}
+
+declare Integer[Text] G_LoginFrame;
+declare Text[Integer] G_FrameLogin;
+
+Text FormatTime(Integer _Time) {
+	if (_Time <= 0) return "-:--.---";
+	return TL::TimeToText(_Time, True, True);
+}
+
+Text FormatGap(Integer _Gap) {
+	declare Integer Seconds = _Gap / 1000;
+	declare Integer Millis = _Gap % 1000;
+	return "+"^Seconds^"."^TL::FormatInteger(Millis, 3);
+}
+
+Void Update(K_Data _Data) {
+	declare Boolean[Text] Present;
+	foreach (Row in _Data.rows) {
+		Present[Row.login] = True;
+	}
+	declare Text[] Gone;
+	foreach (Login => Index in G_LoginFrame) {
+		if (!Present.existskey(Login)) Gone.add(Login);
+	}
+	foreach (Login in Gone) {
+		declare Integer Index = G_LoginFrame[Login];
+		declare CMlFrame OldFrame <=> (Page.GetFirstChild("row-"^Index) as CMlFrame);
+		OldFrame.Visible = False;
+		G_LoginFrame.removekey(Login);
+		G_FrameLogin.removekey(Index);
+	}
+
+	foreach (Slot => Row in _Data.rows) {
+		if (Slot >= C_MaxRows) break;
+		declare Integer Index = -1;
+		declare Boolean IsNew = False;
+		if (G_LoginFrame.existskey(Row.login)) {
+			Index = G_LoginFrame[Row.login];
+		} else {
+			for (I, 0, C_MaxRows - 1) {
+				if (Index < 0 && !G_FrameLogin.existskey(I)) Index = I;
+			}
+			if (Index < 0) continue;
+			G_LoginFrame[Row.login] = Index;
+			G_FrameLogin[Index] = Row.login;
+			IsNew = True;
+		}
+
+		declare CMlFrame Frame <=> (Page.GetFirstChild("row-"^Index) as CMlFrame);
+		declare CMlLabel LabelRank <=> (Page.GetFirstChild("row-"^Index^"-rank") as CMlLabel);
+		declare CMlLabel LabelName <=> (Page.GetFirstChild("row-"^Index^"-name") as CMlLabel);
+		declare CMlLabel LabelValue <=> (Page.GetFirstChild("row-"^Index^"-value") as CMlLabel);
+		declare CMlQuad Highlight <=> (Page.GetFirstChild("row-"^Index^"-hl") as CMlQuad);
+
+		LabelRank.Value = TL::ToText(Row.rank);
+		LabelName.Value = Row.name;
+		if (_Data.mode == "points") {
+			LabelValue.Value = TL::ToText(Row.points);
+			if (Row.finished) {
+				LabelName.TextColor = {{ accent_vec3|safe }};
+			} else {
+				LabelName.TextColor = {{ text_vec3|safe }};
+			}
+		} else if (Row.gap > 0) {
+			LabelValue.Value = FormatGap(Row.gap);
+			LabelValue.TextColor = {{ muted_vec3|safe }};
+		} else {
+			LabelValue.Value = FormatTime(Row.time);
+			LabelValue.TextColor = {{ text_vec3|safe }};
+		}
+		Highlight.Visible = Row.login == LocalUser.Login;
+
+		declare Real TargetY = -C_RowHeight * ML::ToReal(Slot);
+		AnimMgr.Flush(Frame);
+		if (IsNew || !Frame.Visible) {
+			Frame.RelativePosition_V3 = <12., TargetY>;
+			Frame.Visible = True;
+		}
+		AnimMgr.Add(Frame, "<anim pos=\"0 "^TargetY^"\" />", C_AnimMs, CAnimManager::EAnimManagerEasing::QuadOut);
+	}
+
+	declare CMlQuad Cutline <=> (Page.GetFirstChild("cutline") as CMlQuad);
+	if (_Data.cutline > 0 && _Data.cutline < _Data.rows.count && _Data.cutline < C_MaxRows) {
+		declare Real CutY = 0.2 - C_RowHeight * ML::ToReal(_Data.cutline);
+		AnimMgr.Flush(Cutline);
+		if (!Cutline.Visible) {
+			Cutline.RelativePosition_V3 = <0., CutY>;
+			Cutline.Visible = True;
+		}
+		AnimMgr.Add(Cutline, "<anim pos=\"0 "^CutY^"\" />", C_AnimMs, CAnimManager::EAnimManagerEasing::QuadOut);
+	} else {
+		Cutline.Visible = False;
+	}
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Integer LastSerial = -1;
+	while (True) {
+		yield;
+		if (LastSerial != {{ prefix }}_Serial) {
+			LastSerial = {{ prefix }}_Serial;
+			declare K_Data Data;
+			if (Data.fromjson({{ prefix }}_Json)) Update(Data);
+		}
+	}
+}
+--></script>
+</manialink>

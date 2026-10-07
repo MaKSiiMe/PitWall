@@ -1,0 +1,12 @@
+<manialink id="{{ id }}" version="3" name="PitWall:Data">
+<frame id="pw-data" hidden="1" data-json="{{ json }}"/>
+<script><!--
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare CMlFrame DataFrame <=> (Page.GetFirstChild("pw-data") as CMlFrame);
+	{{ prefix }}_Json = DataFrame.DataAttributeGet("json");
+	{{ prefix }}_Serial += 1;
+}
+--></script>
+</manialink>
