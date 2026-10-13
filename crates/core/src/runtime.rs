@@ -295,9 +295,12 @@ impl Connection {
 
         while !shutdown.is_cancelled() {
             match self.connect(&addr).await {
-                Ok((client, callbacks)) => {
+                Ok((client, callbacks, version)) => {
                     delay = Duration::from_secs(server.reconnect_delay_secs.max(1));
+                    // The executor must have the client before plugins hear `Connected`,
+                    // otherwise their first commands fail with "not connected".
                     self.client_tx.send_replace(Some(client.clone()));
+                    self.handles.bus.publish(Event::Connected { version });
                     self.serve(&client, callbacks, &shutdown).await;
                     self.client_tx.send_replace(None);
                     self.handles.state.write(|s| s.connected = false);
@@ -321,7 +324,17 @@ impl Connection {
         }
     }
 
-    async fn connect(&self, addr: &str) -> Result<(GbxClient, pitwall_gbx::Callbacks), GbxError> {
+    async fn connect(
+        &self,
+        addr: &str,
+    ) -> Result<
+        (
+            GbxClient,
+            pitwall_gbx::Callbacks,
+            pitwall_gbx::types::VersionInfo,
+        ),
+        GbxError,
+    > {
         let server = &self.options.server;
         let options = ClientOptions {
             call_timeout: Duration::from_secs(server.call_timeout_secs.max(1)),
@@ -355,8 +368,7 @@ impl Connection {
         });
         // Remove leftovers of a previous controller run.
         let _ = client.hide_all_manialinks().await;
-        self.handles.bus.publish(Event::Connected { version });
-        Ok((client, callbacks))
+        Ok((client, callbacks, version))
     }
 
     /// Reads the full server state after a (re)connection.

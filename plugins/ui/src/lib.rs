@@ -251,6 +251,12 @@ impl Ui {
                 Err(err) => tracing::error!(%err, widget = widget.key(), "cannot render widget"),
             }
         }
+        tracing::info!(
+            login,
+            lang = %lang,
+            widgets = ?wanted.iter().map(|w| w.key()).collect::<Vec<_>>(),
+            "widgets sent"
+        );
         self.sent.insert(
             login.to_owned(),
             Sent {

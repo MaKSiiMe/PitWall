@@ -430,3 +430,19 @@ async fn client_plugin_commands_are_ignored_silently() {
     );
     running.shutdown.cancel();
 }
+
+#[tokio::test]
+async fn commands_sent_on_connected_reach_the_server() {
+    // Plugins (UI, cup) send commands as soon as they hear `Connected`.
+    for _ in 0..20 {
+        let (server, _) = stateful_mock().await;
+        let running = start(&server, RolesConfig::default()).await;
+        let result = running
+            .handles
+            .commands(Actor::System)
+            .call(Command::RestartMap)
+            .await;
+        assert!(result.is_ok(), "{result:?}");
+        running.shutdown.cancel();
+    }
+}
