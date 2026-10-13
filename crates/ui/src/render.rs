@@ -165,6 +165,7 @@ struct AdminTemplate {
     title: String,
     width: String,
     title_width: String,
+    chevron_x: String,
     body_height: String,
     button_width: String,
     buttons: Vec<Button>,
@@ -389,7 +390,8 @@ impl Renderer {
             bg_rgba: c.bg_rgba,
             title: t("ui.admin_title"),
             width: real(width),
-            title_width: real(width - 4.0),
+            title_width: real(width - 8.0),
+            chevron_x: real(width - 3.0),
             body_height: real(rows * 4.9 + 1.5),
             button_width: real(button_width),
             buttons,
@@ -420,16 +422,16 @@ impl Renderer {
             x += width + 0.6;
         };
         if ctx.all_hidden {
-            push(t("ui.menu_show_all"), "pw:ui:showall".into(), true, 22.0);
+            push(t("ui.menu_show_all"), "pw:ui:showall".into(), true, 24.0);
         } else {
-            push(t("ui.menu_hide_all"), "pw:ui:hideall".into(), true, 16.0);
+            push(t("ui.menu_hide_all"), "pw:ui:hideall".into(), true, 19.0);
             for (widget, visible) in &ctx.widgets {
                 let mark = if *visible { "●" } else { "○" };
                 push(
                     format!("{mark} {}", t(&format!("ui.widget.{}", widget.key()))),
                     format!("pw:ui:toggle:{}", widget.key()),
                     *visible,
-                    20.0,
+                    18.0,
                 );
             }
         }

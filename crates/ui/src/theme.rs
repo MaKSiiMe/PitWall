@@ -100,11 +100,9 @@ impl Default for Layout {
                 },
             ),
             (
+                // Top-left: the bottom-left corner belongs to the chat.
                 WidgetId::Menu,
-                Position {
-                    x: -160.0,
-                    y: -82.0,
-                },
+                Position { x: -160.0, y: 87.0 },
             ),
         ]
         .into_iter()
