@@ -8,8 +8,6 @@ use serde::{Deserialize, Serialize};
 pub enum WidgetId {
     /// Live ranking of the match.
     Ranking,
-    /// Checkpoint difference against the reference run.
-    CpDiff,
     /// Cup name, phase, status and ready button.
     CupInfo,
     /// Best times on the map.
@@ -21,9 +19,8 @@ pub enum WidgetId {
 }
 
 impl WidgetId {
-    pub const ALL: [WidgetId; 6] = [
+    pub const ALL: [WidgetId; 5] = [
         WidgetId::Ranking,
-        WidgetId::CpDiff,
         WidgetId::CupInfo,
         WidgetId::Records,
         WidgetId::AdminPanel,
@@ -31,9 +28,8 @@ impl WidgetId {
     ];
 
     /// Widgets players can hide from the menu.
-    pub const HIDEABLE: [WidgetId; 5] = [
+    pub const HIDEABLE: [WidgetId; 4] = [
         WidgetId::Ranking,
-        WidgetId::CpDiff,
         WidgetId::CupInfo,
         WidgetId::Records,
         WidgetId::AdminPanel,
@@ -42,7 +38,6 @@ impl WidgetId {
     pub fn key(self) -> &'static str {
         match self {
             WidgetId::Ranking => "ranking",
-            WidgetId::CpDiff => "cp_diff",
             WidgetId::CupInfo => "cup_info",
             WidgetId::Records => "records",
             WidgetId::AdminPanel => "admin_panel",
@@ -72,12 +67,16 @@ impl WidgetId {
     fn camel(self) -> &'static str {
         match self {
             WidgetId::Ranking => "Ranking",
-            WidgetId::CpDiff => "CpDiff",
             WidgetId::CupInfo => "CupInfo",
             WidgetId::Records => "Records",
             WidgetId::AdminPanel => "AdminPanel",
             WidgetId::Menu => "Menu",
         }
+    }
+
+    /// `LocalUser` variable that hides this widget on the client (set by the menu).
+    pub fn hidden_var(self) -> String {
+        format!("{}_Hidden", self.var_prefix())
     }
 
     /// Has a data layer (the admin panel and the menu are static views).
@@ -95,7 +94,8 @@ mod tests {
         for w in WidgetId::ALL {
             assert_eq!(WidgetId::parse(w.key()), Some(w));
         }
-        assert_eq!(WidgetId::CpDiff.view_id(), "PitWall_CpDiff");
-        assert_eq!(WidgetId::CpDiff.data_id(), "PitWall_CpDiff_Data");
+        assert_eq!(WidgetId::CupInfo.view_id(), "PitWall_CupInfo");
+        assert_eq!(WidgetId::CupInfo.data_id(), "PitWall_CupInfo_Data");
+        assert_eq!(WidgetId::Records.hidden_var(), "PitWall_Records_Hidden");
     }
 }

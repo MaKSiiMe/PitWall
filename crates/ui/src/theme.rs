@@ -89,7 +89,6 @@ impl Default for Layout {
     fn default() -> Self {
         let positions = [
             (WidgetId::Ranking, Position { x: 116.0, y: 62.0 }),
-            (WidgetId::CpDiff, Position { x: 0.0, y: 52.0 }),
             (WidgetId::CupInfo, Position { x: 0.0, y: 88.0 }),
             (WidgetId::Records, Position { x: -160.0, y: 62.0 }),
             (

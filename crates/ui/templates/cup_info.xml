@@ -30,6 +30,9 @@ main() {
 	declare K_Data Info;
 	declare Integer ReadyEnd = 0;
 	declare Boolean IAmReady = False;
+	declare Boolean HasCup = False;
+	declare Boolean {{ hidden_var }} for LocalUser;
+	declare Boolean PitWall_HideAll for LocalUser;
 	declare CMlFrame Root <=> (Page.GetFirstChild("cup") as CMlFrame);
 	declare CMlFrame Ready <=> (Page.GetFirstChild("ready") as CMlFrame);
 	declare CMlLabel LabelName <=> (Page.GetFirstChild("cup-name") as CMlLabel);
@@ -40,6 +43,7 @@ main() {
 
 	while (True) {
 		yield;
+		Root.Visible = HasCup && !(PitWall_HideAll || {{ hidden_var }});
 		if (LastSerial != {{ prefix }}_Serial) {
 			LastSerial = {{ prefix }}_Serial;
 			declare K_Data Data;
@@ -47,15 +51,16 @@ main() {
 				Info = Data;
 				ReadyEnd = Now + Info.remaining_ms;
 				if (Info.cup == "") {
-					Root.Visible = False;
+					HasCup = False;
 				} else {
 					LabelName.Value = Info.cup;
 					LabelPhase.Value = Info.phase^"  ·  "^Info.status;
-					if (!Root.Visible) {
+					if (!HasCup) {
+						// Slides down from above the screen the first time.
 						Root.RelativePosition_V3 = <{{ x }}, {{ y_hidden }}>;
-						Root.Visible = True;
 						AnimMgr.Add(Root, "<anim pos=\"{{ x }} {{ y }}\" />", 400, CAnimManager::EAnimManagerEasing::QuadOut);
 					}
+					HasCup = True;
 				}
 				IAmReady = Info.ready_done.exists(LocalUser.Login);
 				Ready.Visible = Info.ready_check && Info.ready_logins.exists(LocalUser.Login);

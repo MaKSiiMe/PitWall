@@ -1,7 +1,6 @@
 [ui]
 ranking_title = "CLASSEMENT LIVE"
 records_title = "MEILLEURS TEMPS"
-cp_vs = "vs"
 ready = "PRÊT"
 ready_done = "PRÊT ✔"
 ready_count = "Prêts :"
@@ -30,7 +29,6 @@ phase_step = "Phase {current}/{total}"
 
 [ui.widget]
 ranking = "Classement"
-cp_diff = "Checkpoints"
 cup_info = "Cup"
 records = "Records"
 admin_panel = "Admin"

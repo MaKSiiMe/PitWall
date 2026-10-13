@@ -1,7 +1,70 @@
 <manialink id="{{ id }}" version="3" name="PitWall:Menu">
 <frame pos="{{ x }} {{ y }}" z-index="10">
-{%- for button in buttons %}
-	<label pos="{{ button.x }} 0" z-index="2" size="{{ button.width }} 4" halign="left" valign="center2" textfont="GameFontSemiBold" textsize="0.8" textcolor="{% if button.on %}{{ theme.text }}{% else %}{{ theme.muted }}{% endif %}" text="{{ button.label }}" action="{{ button.action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	<frame pos="0 0" id="pw-menu-full"{% if all_hidden %} hidden="1"{% endif %}>
+		<label pos="0 0" z-index="2" size="{{ hide_all_width }} 4" halign="left" valign="center2" textfont="GameFontSemiBold" textsize="0.8" textcolor="{{ theme.text }}" text="{{ hide_all_label }}" scriptevents="1" id="pw-menu-hideall" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+{%- for t in toggles %}
+		<label pos="{{ t.x }} 0" z-index="2" size="{{ t.width }} 4" halign="left" valign="center2" textfont="GameFontSemiBold" textsize="0.8" textcolor="{% if t.hidden %}{{ theme.muted }}{% else %}{{ theme.text }}{% endif %}" text="{{ t.label }}" scriptevents="1" id="{{ t.id }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 {%- endfor %}
+	</frame>
+	<frame pos="0 0" id="pw-menu-mini"{% if !all_hidden %} hidden="1"{% endif %}>
+		<label pos="0 0" z-index="2" size="24 4" halign="left" valign="center2" textfont="GameFontSemiBold" textsize="0.8" textcolor="{{ theme.text }}" text="{{ show_all_label }}" scriptevents="1" id="pw-menu-showall" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	</frame>
 </frame>
+<script><!--
+// Clicks are applied here, instantly: each widget hides itself when its LocalUser variable is
+// set. The server only receives the new state (TriggerPageAction) to save it.
+Void Refresh() {
+	declare Boolean PitWall_HideAll for LocalUser;
+	declare CMlFrame Full <=> (Page.GetFirstChild("pw-menu-full") as CMlFrame);
+	declare CMlFrame Mini <=> (Page.GetFirstChild("pw-menu-mini") as CMlFrame);
+	Full.Visible = !PitWall_HideAll;
+	Mini.Visible = PitWall_HideAll;
+{%- for t in toggles %}
+	declare Boolean {{ t.var }} for LocalUser;
+	declare CMlLabel Toggle{{ loop.index }} <=> (Page.GetFirstChild("{{ t.id }}") as CMlLabel);
+	if ({{ t.var }}) {
+		Toggle{{ loop.index }}.Value = "○ {{ t.name_ms|safe }}";
+		Toggle{{ loop.index }}.TextColor = {{ muted_vec3|safe }};
+	} else {
+		Toggle{{ loop.index }}.Value = "● {{ t.name_ms|safe }}";
+		Toggle{{ loop.index }}.TextColor = {{ text_vec3|safe }};
+	}
+{%- endfor %}
+}
+
+main() {
+	declare Boolean PitWall_HideAll for LocalUser;
+	// The preferences saved on the server win whenever this page is (re)sent.
+	PitWall_HideAll = {% if all_hidden %}True{% else %}False{% endif %};
+{%- for t in toggles %}
+	declare Boolean {{ t.var }} for LocalUser;
+	{{ t.var }} = {% if t.hidden %}True{% else %}False{% endif %};
+{%- endfor %}
+	Refresh();
+	while (True) {
+		yield;
+		foreach (Event in PendingEvents) {
+			if (Event.Type != CMlScriptEvent::Type::MouseClick) continue;
+			if (Event.ControlId == "pw-menu-hideall") {
+				PitWall_HideAll = True;
+				TriggerPageAction("pw:ui:all:1");
+			} else if (Event.ControlId == "pw-menu-showall") {
+				PitWall_HideAll = False;
+				TriggerPageAction("pw:ui:all:0");
+			}
+{%- for t in toggles %}
+			else if (Event.ControlId == "{{ t.id }}") {
+				{{ t.var }} = !{{ t.var }};
+				if ({{ t.var }}) {
+					TriggerPageAction("pw:ui:set:{{ t.key }}:1");
+				} else {
+					TriggerPageAction("pw:ui:set:{{ t.key }}:0");
+				}
+			}
+{%- endfor %}
+			Refresh();
+		}
+	}
+}
+--></script>
 </manialink>

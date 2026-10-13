@@ -73,6 +73,14 @@ fn every_view_renders_in_both_languages() {
             if widget.has_data() {
                 assert!(script.contains(&format!("{}_Serial for LocalUser", widget.var_prefix())));
             }
+            if widget != WidgetId::Menu {
+                // Every widget hides itself from the menu's LocalUser flags.
+                assert!(script.contains(&format!(
+                    "declare Boolean {} for LocalUser",
+                    widget.hidden_var()
+                )));
+                assert!(script.contains("PitWall_HideAll"));
+            }
         }
     }
 }
@@ -166,10 +174,17 @@ fn menu_reflects_preferences() {
         all_hidden: false,
     };
     let xml = renderer.menu(Lang::Fr, &i18n, &menu).unwrap();
-    check_xml(&xml);
+    check_script(&check_xml(&xml));
+    // Initial labels (before the script runs) and saved states pushed to the client.
     assert!(xml.contains("● Classement"));
     assert!(xml.contains("○ Records"));
-    assert!(xml.contains("pw:ui:toggle:records"));
+    assert!(xml.contains("PitWall_Ranking_Hidden = False;"));
+    assert!(xml.contains("PitWall_Records_Hidden = True;"));
+    assert!(xml.contains("PitWall_HideAll = False;"));
+    // Clicks are handled by the script, which tells the server the new state.
+    assert!(xml.contains("pw:ui:set:records:1") && xml.contains("pw:ui:set:records:0"));
+    assert!(!xml.contains("action="), "no server round trip on click");
+
     let hidden = renderer
         .menu(
             Lang::Fr,
@@ -180,7 +195,8 @@ fn menu_reflects_preferences() {
             },
         )
         .unwrap();
-    assert!(hidden.contains("pw:ui:showall"));
+    assert!(hidden.contains("PitWall_HideAll = True;"));
+    assert!(hidden.contains("pw:ui:all:0"));
 }
 
 #[test]

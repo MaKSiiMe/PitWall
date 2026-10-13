@@ -16,7 +16,7 @@ use pitwall_core::{
 };
 use pitwall_formats::FormatRegistry;
 use pitwall_formats::cup::{CupSnapshot, CupStatus};
-use pitwall_ui::model::{CpDiffData, CupInfoData, RankingData, RankingRow, RecordRow, RecordsData};
+use pitwall_ui::model::{CupInfoData, RankingData, RankingRow, RecordRow, RecordsData};
 use pitwall_ui::render::{AdminContext, MenuContext};
 use pitwall_ui::{Layout, Renderer, Theme, WidgetId};
 use serde::{Deserialize, Serialize};
@@ -111,7 +111,6 @@ impl Plugin for UiPlugin {
 struct Run {
     name: String,
     time: i32,
-    cps: Vec<i32>,
 }
 
 /// What a player currently has on screen.
@@ -161,15 +160,11 @@ impl Ui {
         }
     }
 
-    /// Widgets `login` should see.
-    fn wanted(&self, login: &str, role: Role) -> BTreeSet<WidgetId> {
-        let prefs = self.prefs(login);
-        if prefs.all_hidden {
-            return [WidgetId::Menu].into_iter().collect();
-        }
+    /// Widgets sent to a player. Hidden ones are sent too: hiding happens on the client, from
+    /// the menu, so that it is instant.
+    fn wanted(role: Role) -> BTreeSet<WidgetId> {
         WidgetId::ALL
             .into_iter()
-            .filter(|w| !prefs.hidden.contains(w))
             .filter(|w| *w != WidgetId::AdminPanel || role >= Role::Referee)
             .collect()
     }
@@ -222,7 +217,7 @@ impl Ui {
             return;
         };
         let (lang, role) = (player.lang, ctx.roles.get(login));
-        let wanted = self.wanted(login, role);
+        let wanted = Self::wanted(role);
         let previous = self
             .sent
             .get(login)
@@ -362,23 +357,6 @@ impl Ui {
         }
     }
 
-    fn cp_diff(&self, ctx: &PluginContext) -> CpDiffData {
-        let best = self
-            .best
-            .iter()
-            .min_by_key(|(login, run)| (run.time, (*login).clone()));
-        match best {
-            Some((login, run)) => CpDiffData {
-                name: Self::name_of(ctx, login, &run.name),
-                cps: run.cps.clone(),
-            },
-            None => CpDiffData {
-                name: String::new(),
-                cps: Vec::new(),
-            },
-        }
-    }
-
     fn records(&self, ctx: &PluginContext) -> RecordsData {
         let rows = match &self.records {
             Some(rows) => rows.clone(),
@@ -462,7 +440,6 @@ impl Ui {
     ) -> Option<String> {
         let result = match widget {
             WidgetId::Ranking => self.renderer.data(widget, &self.ranking(ctx)),
-            WidgetId::CpDiff => self.renderer.data(widget, &self.cp_diff(ctx)),
             WidgetId::Records => self.renderer.data(widget, &self.records(ctx)),
             WidgetId::CupInfo => self.renderer.data(
                 widget,
@@ -565,10 +542,9 @@ impl Ui {
                             Run {
                                 name,
                                 time: waypoint.racetime,
-                                cps: waypoint.curracecheckpoints.clone(),
                             },
                         );
-                        self.mark(&[WidgetId::Ranking, WidgetId::CpDiff, WidgetId::Records]);
+                        self.mark(&[WidgetId::Ranking, WidgetId::Records]);
                     }
                 }
                 if !Self::is_time_mode(ctx) {
@@ -588,7 +564,7 @@ impl Ui {
                 self.best.clear();
                 self.finished.clear();
                 self.records = None;
-                self.mark(&[WidgetId::Ranking, WidgetId::CpDiff, WidgetId::Records]);
+                self.mark(&[WidgetId::Ranking, WidgetId::Records]);
             }
             Event::ModeChanged { .. } => {
                 self.scores = None;
@@ -655,14 +631,36 @@ impl Ui {
         }
     }
 
-    fn set_prefs(&mut self, ctx: &PluginContext, login: &str, update: impl FnOnce(&mut Prefs)) {
+    /// Saves a preference change. The client already applied it.
+    fn set_prefs(&mut self, login: &str, update: impl FnOnce(&mut Prefs)) {
         let prefs = self.prefs.entry(login.to_owned()).or_default();
         update(prefs);
-        if *prefs == Prefs::default() {
+        let saved = prefs.clone();
+        if saved == Prefs::default() {
             self.prefs.remove(login);
         }
         self.save_prefs();
-        self.send_views(ctx, login);
+        tracing::info!(
+            login,
+            hidden = ?saved.hidden.iter().map(|w| w.key()).collect::<Vec<_>>(),
+            all_hidden = saved.all_hidden,
+            "UI preferences saved"
+        );
+    }
+
+    /// Re-sends the menu: it pushes the saved preferences to the client's widgets.
+    fn send_menu(&self, ctx: &PluginContext, login: &str) {
+        let Some(player) = ctx.state.player(login) else {
+            return;
+        };
+        let role = ctx.roles.get(login);
+        match self
+            .renderer
+            .menu(player.lang, &ctx.i18n, &self.menu_context(login, role))
+        {
+            Ok(xml) => Self::send(ctx, vec![login.to_owned()], xml),
+            Err(err) => tracing::error!(%err, "cannot render the menu"),
+        }
     }
 
     fn on_click(&mut self, ctx: &PluginContext, login: &str, action: &str) {
@@ -671,21 +669,21 @@ impl Ui {
             ctx.invoke_as_player(login, line);
             return;
         }
-        match action {
-            "pw:ui:hideall" => self.set_prefs(ctx, login, |p| p.all_hidden = true),
-            "pw:ui:showall" => self.set_prefs(ctx, login, |p| p.all_hidden = false),
-            _ => {
-                if let Some(widget) = action
-                    .strip_prefix("pw:ui:toggle:")
-                    .and_then(WidgetId::parse)
-                {
-                    self.set_prefs(ctx, login, |p| {
-                        if !p.hidden.remove(&widget) {
-                            p.hidden.insert(widget);
-                        }
-                    });
+        if let Some(state) = action.strip_prefix("pw:ui:all:") {
+            let hidden = state == "1";
+            self.set_prefs(login, |p| p.all_hidden = hidden);
+        } else if let Some(rest) = action.strip_prefix("pw:ui:set:")
+            && let Some((key, state)) = rest.rsplit_once(':')
+            && let Some(widget) = WidgetId::parse(key).filter(|w| *w != WidgetId::Menu)
+        {
+            let hidden = state == "1";
+            self.set_prefs(login, |p| {
+                if hidden {
+                    p.hidden.insert(widget);
+                } else {
+                    p.hidden.remove(&widget);
                 }
-            }
+            });
         }
     }
 
@@ -700,7 +698,8 @@ impl Ui {
             _ => None,
         };
         if target == "all" {
-            self.set_prefs(ctx, &login, |p| p.all_hidden = !on.unwrap_or(p.all_hidden));
+            self.set_prefs(&login, |p| p.all_hidden = !on.unwrap_or(p.all_hidden));
+            self.send_menu(ctx, &login);
             return;
         }
         let Some(widget) = WidgetId::parse(target).filter(|w| *w != WidgetId::Menu) else {
@@ -708,12 +707,12 @@ impl Ui {
                 inv,
                 Text::tr("core.usage").arg(
                     "usage",
-                    "/ui <ranking|cp_diff|cup_info|records|admin_panel|all> [on|off]",
+                    "/ui <ranking|cup_info|records|admin_panel|all> [on|off]",
                 ),
             );
             return;
         };
-        self.set_prefs(ctx, &login, |p| {
+        self.set_prefs(&login, |p| {
             let visible = on.unwrap_or(p.hidden.contains(&widget));
             if visible {
                 p.hidden.remove(&widget);
@@ -722,5 +721,6 @@ impl Ui {
             }
             p.all_hidden = false;
         });
+        self.send_menu(ctx, &login);
     }
 }

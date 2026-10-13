@@ -126,30 +126,48 @@ async fn widgets_follow_the_race_and_preferences() {
             .any(|p| p.contains("PitWall_Ranking_Data") && p.contains("42123"))
     })
     .await;
-    assert!(
-        pages_for(&server, "bob")
-            .iter()
-            .any(|p| p.contains("PitWall_CpDiff_Data") && p.contains("10000"))
-    );
 
-    // bob hides the records widget from the menu.
+    // bob hides the records widget from the menu: the client hides it, the server only saves it
+    // (no page is re-sent, which is what makes it instant).
+    let pages_before = pages_for(&server, "bob").len();
     server.send_callback(
         "ManiaPlanet.PlayerManialinkPageAnswer",
         vec![
             1.into(),
             "bob".into(),
-            "pw:ui:toggle:records".into(),
+            "pw:ui:set:records:1".into(),
             Value::Array(vec![]),
         ],
     );
-    wait_until("records hidden", || {
-        pages_for(&server, "bob")
-            .iter()
-            .any(|p| p.trim() == r#"<manialink id="PitWall_Records" version="3"></manialink>"#)
+    let prefs = data_dir.join("ui_prefs.json");
+    wait_until("preference saved", || {
+        std::fs::read_to_string(&prefs).is_ok_and(|s| s.contains("records"))
     })
     .await;
-    let saved = std::fs::read_to_string(data_dir.join("ui_prefs.json")).unwrap();
-    assert!(saved.contains("records"));
+    assert_eq!(
+        pages_for(&server, "bob").len(),
+        pages_before,
+        "nothing re-sent"
+    );
+
+    // `/ui records on` changes it from the chat: only the menu is re-sent, with the new state.
+    server.send_callback(
+        "ManiaPlanet.PlayerChat",
+        vec![
+            1.into(),
+            "bob".into(),
+            "/ui records on".into(),
+            false.into(),
+            0.into(),
+        ],
+    );
+    wait_until("menu re-sent", || {
+        pages_for(&server, "bob")
+            .iter()
+            .skip(pages_before)
+            .any(|p| p.contains("PitWall_Records_Hidden = False;"))
+    })
+    .await;
 
     // A forged admin action from a player is refused by the command registry.
     server.send_callback(

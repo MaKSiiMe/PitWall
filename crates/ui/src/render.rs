@@ -75,6 +75,7 @@ struct HideTemplate {
 struct RankingTemplate {
     id: String,
     prefix: String,
+    hidden_var: String,
     x: String,
     y: String,
     theme: Theme,
@@ -98,6 +99,7 @@ struct RankingTemplate {
 struct RecordsTemplate {
     id: String,
     prefix: String,
+    hidden_var: String,
     x: String,
     y: String,
     theme: Theme,
@@ -114,24 +116,11 @@ struct RecordsTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "cp_diff.xml")]
-struct CpDiffTemplate {
-    id: String,
-    prefix: String,
-    x: String,
-    y: String,
-    theme: Theme,
-    bg_opacity: String,
-    vs_label: String,
-    good_vec3: String,
-    bad_vec3: String,
-}
-
-#[derive(Template)]
 #[template(path = "cup_info.xml")]
 struct CupInfoTemplate {
     id: String,
     prefix: String,
+    hidden_var: String,
     x: String,
     y: String,
     y_hidden: String,
@@ -147,16 +136,15 @@ struct CupInfoTemplate {
 struct Button {
     x: String,
     y: String,
-    width: String,
     label: String,
     action: String,
-    on: bool,
 }
 
 #[derive(Template)]
 #[template(path = "admin_panel.xml")]
 struct AdminTemplate {
     id: String,
+    hidden_var: String,
     x: String,
     y: String,
     theme: Theme,
@@ -171,6 +159,21 @@ struct AdminTemplate {
     buttons: Vec<Button>,
 }
 
+/// One show/hide switch of the menu.
+struct Toggle {
+    id: String,
+    key: &'static str,
+    /// `LocalUser` variable read by the widget.
+    var: String,
+    /// Name as a ManiaScript string literal.
+    name_ms: String,
+    /// Label shown before the script runs.
+    label: String,
+    x: String,
+    width: String,
+    hidden: bool,
+}
+
 #[derive(Template)]
 #[template(path = "menu.xml")]
 struct MenuTemplate {
@@ -179,7 +182,13 @@ struct MenuTemplate {
     y: String,
     theme: Theme,
     bg_rgba: String,
-    buttons: Vec<Button>,
+    text_vec3: String,
+    muted_vec3: String,
+    hide_all_label: String,
+    hide_all_width: String,
+    show_all_label: String,
+    all_hidden: bool,
+    toggles: Vec<Toggle>,
 }
 
 /// Renders pages with a theme and a layout.
@@ -259,6 +268,7 @@ impl Renderer {
             WidgetId::Ranking => RankingTemplate {
                 id: c.id,
                 prefix: c.prefix,
+                hidden_var: widget.hidden_var(),
                 x: c.x,
                 y: c.y,
                 theme: c.theme,
@@ -280,6 +290,7 @@ impl Renderer {
             WidgetId::Records => RecordsTemplate {
                 id: c.id,
                 prefix: c.prefix,
+                hidden_var: widget.hidden_var(),
                 x: c.x,
                 y: c.y,
                 theme: c.theme,
@@ -295,23 +306,12 @@ impl Renderer {
                 max_rows,
             }
             .render()?,
-            WidgetId::CpDiff => CpDiffTemplate {
-                id: c.id,
-                prefix: c.prefix,
-                x: c.x,
-                y: c.y,
-                theme: c.theme,
-                bg_opacity: c.bg_opacity,
-                vs_label: ms_string(&t("ui.cp_vs")),
-                good_vec3: Theme::vec3(&self.theme.good),
-                bad_vec3: Theme::vec3(&self.theme.bad),
-            }
-            .render()?,
             WidgetId::CupInfo => {
                 let pos = self.layout.position(widget);
                 CupInfoTemplate {
                     id: c.id,
                     prefix: c.prefix,
+                    hidden_var: widget.hidden_var(),
                     x: c.x,
                     y: c.y,
                     y_hidden: real(pos.y + 12.0),
@@ -373,16 +373,15 @@ impl Renderer {
                 Button {
                     x: real(1.0 + button_width / 2.0 + col * (button_width + 1.0)),
                     y: real(5.5 + 2.2 + row * 4.9),
-                    width: real(button_width),
                     label,
                     action: format!("pw:cmd:{command}"),
-                    on: true,
                 }
             })
             .collect();
         let rows = buttons.len().div_ceil(2) as f32;
         Ok(AdminTemplate {
             id: c.id,
+            hidden_var: WidgetId::AdminPanel.hidden_var(),
             x: c.x,
             y: c.y,
             theme: c.theme,
@@ -399,7 +398,9 @@ impl Renderer {
         .render()?)
     }
 
-    /// Show/hide toggles for one player.
+    /// Show/hide switches for one player. Clicks are handled on the client (instant): the
+    /// widgets read `LocalUser` variables, and the server is only told so it can save the choice.
+    /// Re-sending this page applies the server's saved preferences again.
     pub fn menu(
         &self,
         lang: Lang,
@@ -408,40 +409,42 @@ impl Renderer {
     ) -> Result<String, RenderError> {
         let t = |key: &str| i18n.t(lang, key);
         let c = self.common(WidgetId::Menu);
-        let mut buttons = Vec::new();
-        let mut x = 0.0f32;
-        let mut push = |label: String, action: String, on: bool, width: f32| {
-            buttons.push(Button {
-                x: real(x),
-                y: real(0.0),
-                width: real(width),
-                label,
-                action,
-                on,
-            });
-            x += width + 0.6;
-        };
-        if ctx.all_hidden {
-            push(t("ui.menu_show_all"), "pw:ui:showall".into(), true, 24.0);
-        } else {
-            push(t("ui.menu_hide_all"), "pw:ui:hideall".into(), true, 19.0);
-            for (widget, visible) in &ctx.widgets {
+        const HIDE_ALL_WIDTH: f32 = 19.0;
+        const TOGGLE_WIDTH: f32 = 18.0;
+        let mut x = HIDE_ALL_WIDTH + 0.6;
+        let toggles = ctx
+            .widgets
+            .iter()
+            .map(|(widget, visible)| {
+                let name = t(&format!("ui.widget.{}", widget.key()));
                 let mark = if *visible { "●" } else { "○" };
-                push(
-                    format!("{mark} {}", t(&format!("ui.widget.{}", widget.key()))),
-                    format!("pw:ui:toggle:{}", widget.key()),
-                    *visible,
-                    18.0,
-                );
-            }
-        }
+                let toggle = Toggle {
+                    id: format!("pw-menu-{}", widget.key()),
+                    key: widget.key(),
+                    var: widget.hidden_var(),
+                    name_ms: ms_string(&name),
+                    label: format!("{mark} {name}"),
+                    x: real(x),
+                    width: real(TOGGLE_WIDTH),
+                    hidden: !*visible,
+                };
+                x += TOGGLE_WIDTH + 0.6;
+                toggle
+            })
+            .collect();
         Ok(MenuTemplate {
             id: c.id,
             x: c.x,
             y: c.y,
             theme: c.theme,
             bg_rgba: c.bg_rgba,
-            buttons,
+            text_vec3: Theme::vec3(&self.theme.text),
+            muted_vec3: Theme::vec3(&self.theme.muted),
+            hide_all_label: t("ui.menu_hide_all"),
+            hide_all_width: real(HIDE_ALL_WIDTH),
+            show_all_label: t("ui.menu_show_all"),
+            all_hidden: ctx.all_hidden,
+            toggles,
         }
         .render()?)
     }

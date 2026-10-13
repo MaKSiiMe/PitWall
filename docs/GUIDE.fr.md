@@ -66,8 +66,7 @@ Dans la console, tape `help` : la liste des commandes s'affiche.
 | Changement de mode | `/mode cup` puis `/mode ta` | rechargement de la map, personne n'est déconnecté, message « Mode : … » |
 | Bots | `/bot` (plusieurs fois), `/bot off` | des faux joueurs se connectent puis partent |
 | Classement | finir une course en TA | ta ligne apparaît en glissant, temps affiché |
-| Écart aux CP | refaire un run | écart vert ou rouge au centre à chaque checkpoint |
-| Masquer | cliquer « ● Classement » dans le menu | le widget disparaît, le choix est conservé |
+| Masquer | cliquer « ● Classement » dans le menu (en haut à gauche) | le widget disparaît instantanément, le choix est conservé |
 | Panneau admin | être Referee ou plus | boutons Pause, Fin de manche… |
 | Maps TMX | `/map tmx 361306 next` puis `/next` | map téléchargée et jouée |
 | Dashboard | `PITWALL_API__ADMIN_TOKEN=xxx` dans `.env`, ouvrir <http://127.0.0.1:8080/admin> | console web, joueurs, journal d'audit |

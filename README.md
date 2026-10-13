@@ -6,9 +6,9 @@ team matches**.
 - **Hot format switching**: go from Time Attack to Cup, Rounds, Teams, Knockout… with one command,
   without disconnecting anyone. The mode script, its settings and the playlist change in a
   single map load.
-- **Fluid in-game UI**: live ranking whose rows slide to their new rank, checkpoint deltas
-  computed client-side, cup banner with a ready button, records, admin panel. Every widget can be
-  hidden per player, and updates are small and sent only to the players who display them.
+- **Fluid in-game UI**: live ranking whose rows slide to their new rank, cup banner with a ready
+  button, records, admin panel. Each player hides any widget instantly (handled on the client),
+  and data updates are small and sent only when something changed.
 - **Cup engine**: cups are chains of phases described in TOML (qualifiers → knockout, groups →
   final, brackets…). Optional sandboxed Lua scripts handle custom rules. The engine also covers
   ready checks, disconnection policies, crash recovery and per-cup registration modes.
@@ -25,7 +25,7 @@ French getting-started guide: [docs/GUIDE.fr.md](docs/GUIDE.fr.md).
 | Protocol | GbxRemote 2 client: typed methods and callbacks (legacy + TM2020 script callbacks), multicall, timeouts, auto-reconnect |
 | Formats | Built-in TA, Rounds, Cup, Teams, Knockout, Laps, TMWT, Royal; custom formats in `config/formats/*.toml`; `/mode <format>`, `/set S_x value` |
 | Cups | Phases, qualification (top N / all / Lua), single elimination brackets (teams), start policy (manual / ready check / auto), disconnect policy (keep / pause / eliminate), registrations (list / open / in game / web, optional approval), state saved for crash recovery |
-| In-game UI | Live ranking, checkpoint diff, cup banner + ready button, records, role-based admin panel, show/hide menu, FR/EN |
+| In-game UI | Live ranking, cup banner + ready button, records, collapsible role-based admin panel, instant show/hide menu, FR/EN |
 | Moderation | kick, ban, blacklist, mute, force spectator/player, teams, pause, end round, points corrections, guest list, password, test bots |
 | Roles | Player < Caster < Referee < Admin < SuperAdmin, fixed permissions |
 | Maps | Trackmania Exchange (id, URL, search), Nadeo map uid and club campaigns, local files, uploaded with `WriteFile` (no shared volume) |

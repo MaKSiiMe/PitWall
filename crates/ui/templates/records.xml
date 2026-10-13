@@ -33,9 +33,13 @@
 main() {
 	declare Text {{ prefix }}_Json for LocalUser;
 	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Boolean {{ hidden_var }} for LocalUser;
+	declare Boolean PitWall_HideAll for LocalUser;
+	declare CMlFrame Root <=> (Page.GetFirstChild("records") as CMlFrame);
 	declare Integer LastSerial = -1;
 	while (True) {
 		yield;
+		Root.Visible = !(PitWall_HideAll || {{ hidden_var }});
 		if (LastSerial == {{ prefix }}_Serial) continue;
 		LastSerial = {{ prefix }}_Serial;
 		declare K_Data Data;

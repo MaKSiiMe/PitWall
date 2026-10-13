@@ -27,14 +27,6 @@ pub struct RankingData {
     pub rows: Vec<RankingRow>,
 }
 
-/// Reference run for the checkpoint difference.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CpDiffData {
-    /// Who holds the reference.
-    pub name: String,
-    pub cps: Vec<i32>,
-}
-
 /// Cup banner (texts are already localized).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CupInfoData {
