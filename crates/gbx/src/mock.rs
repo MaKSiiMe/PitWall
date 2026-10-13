@@ -59,7 +59,7 @@ pub fn default_handler(call: &MethodCall) -> MethodResponse {
             ("TitleId", "Trackmania".into()),
             ("Version", "3.3.0".into()),
             ("Build", "mock".into()),
-            ("ApiVersion", "2023-04-24".into()),
+            ("ApiVersion", "2023-03-25".into()),
         ]),
         "GetScriptName" => s(&[
             (

@@ -196,6 +196,10 @@ impl CommandRegistry {
     }
 }
 
+/// Commands sent automatically by client-side plugins (Openplanet), answered by nobody:
+/// `/chatformat` is how Better Chat asks the controller for its chat format.
+pub const IGNORED_COMMANDS: &[&str] = &["chatformat"];
+
 /// What [`dispatch`] needs.
 #[derive(Debug, Clone, Copy)]
 pub struct Dispatcher<'a> {
@@ -246,6 +250,9 @@ pub fn dispatch(
             },
         }),
         Resolution::Denied(spec) => say(Text::tr("core.permission_denied").arg("name", spec.name)),
+        Resolution::Unknown if IGNORED_COMMANDS.contains(&name.as_str()) => {
+            tracing::debug!(%name, "ignoring a client plugin command");
+        }
         Resolution::Unknown => say(Text::tr("core.unknown_command").arg("name", name)),
     }
 }

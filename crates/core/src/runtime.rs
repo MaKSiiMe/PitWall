@@ -52,7 +52,7 @@ impl Default for ServerConfig {
             port: 5000,
             user: "SuperAdmin".to_owned(),
             password: String::new(),
-            api_version: "2023-04-24".to_owned(),
+            api_version: "2023-03-25".to_owned(),
             script_api_version: None,
             call_timeout_secs: 10,
             reconnect_delay_secs: 2,

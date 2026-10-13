@@ -99,10 +99,11 @@ async fn widgets_follow_the_race_and_preferences() {
         "ManiaPlanet.PlayerConnect",
         vec!["bob".into(), false.into()],
     );
+    // Views are sent one call at a time, the menu last.
     wait_until("views", || {
         pages_for(&server, "bob")
             .iter()
-            .any(|p| p.contains("id=\"PitWall_Ranking\""))
+            .any(|p| p.contains("id=\"PitWall_Menu\""))
     })
     .await;
     let pages = pages_for(&server, "bob");

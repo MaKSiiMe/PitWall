@@ -115,5 +115,5 @@ testés sans serveur réel :
 3. **`WriteFile`** crée-t-il les sous-dossiers `MatchSettings/PitWall/` et `PitWall/` ?
 4. **Commandes de chat** : un message `/xxx` est-il visible des autres joueurs ? Si oui, il faudra
    activer `ChatEnableManualRouting`.
-5. **Version d'API** : `2023-04-24` est acceptée ? Le log affiche un avertissement sinon.
+5. ~~Version d'API~~ : vérifié, le serveur annonce `2023-03-25` (valeur par défaut de PitWall).
 6. **API Nadeo** avec le compte serveur dédié : `/map uid` et `/map club`.

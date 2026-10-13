@@ -409,3 +409,24 @@ fn events_serialize_to_json() {
     assert_eq!(json["callback"]["type"], "script");
     assert_eq!(json["callback"]["callback"], "warm_up_start");
 }
+
+#[tokio::test]
+async fn client_plugin_commands_are_ignored_silently() {
+    let (server, _) = stateful_mock().await;
+    let running = start(&server, RolesConfig::default()).await;
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    // Better Chat (Openplanet) sends `/chatformat json` on join.
+    running.handles.invoke(
+        Actor::Player("bob".into()),
+        Role::Player,
+        Lang::En,
+        "/chatformat json",
+        ReplyTo::Channel(tx),
+    );
+    let answer = tokio::time::timeout(Duration::from_millis(300), rx.recv()).await;
+    assert!(
+        !matches!(answer, Ok(Some(_))),
+        "no answer expected, got {answer:?}"
+    );
+    running.shutdown.cancel();
+}

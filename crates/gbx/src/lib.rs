@@ -8,7 +8,7 @@
 //! use pitwall_gbx::{ClientOptions, GbxClient};
 //! let (client, mut callbacks) = GbxClient::connect("127.0.0.1:5000", ClientOptions::default()).await?;
 //! client.authenticate("SuperAdmin", "password").await?;
-//! client.set_api_version("2023-04-24").await?;
+//! client.set_api_version("2023-03-25").await?;
 //! client.enable_callbacks(true).await?;
 //! while let Some(callback) = callbacks.recv().await {
 //!     println!("{callback:?}");
