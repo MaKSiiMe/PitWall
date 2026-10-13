@@ -1,0 +1,36 @@
+# Trackmania 2020 dedicated server — stack for Portainer (Stacks → Add stack → Web editor).
+# Secrets are NOT in this file: fill them in Portainer's "Environment variables" section
+# (see deploy/portainer/stack.env.example). Image docs: https://github.com/EvoTM/docker-trackmania
+
+services:
+  trackmania:
+    image: evoesports/trackmania:latest
+    container_name: trackmania
+    restart: unless-stopped
+    ports:
+      # Game port, must be reachable by players (router port forwarding TCP + UDP 2350).
+      - "2350:2350/tcp"
+      - "2350:2350/udp"
+      # XML-RPC for PitWall. Bind it to a private address only (Tailscale IP or 127.0.0.1),
+      # never to 0.0.0.0: whoever reaches it with the password controls the server.
+      - "${TM_XMLRPC_BIND:-127.0.0.1}:5000:5000/tcp"
+    environment:
+      TM_MASTERSERVER_LOGIN: ${TM_MASTERSERVER_LOGIN:?set TM_MASTERSERVER_LOGIN}
+      TM_MASTERSERVER_PASSWORD: ${TM_MASTERSERVER_PASSWORD:?set TM_MASTERSERVER_PASSWORD}
+      TM_AUTHORIZATION_SUPERADMIN_PASSWORD: ${TM_AUTHORIZATION_SUPERADMIN_PASSWORD:?set TM_AUTHORIZATION_SUPERADMIN_PASSWORD}
+      TM_AUTHORIZATION_ADMIN_PASSWORD: ${TM_AUTHORIZATION_ADMIN_PASSWORD:?set TM_AUTHORIZATION_ADMIN_PASSWORD}
+      TM_AUTHORIZATION_USER_PASSWORD: ${TM_AUTHORIZATION_USER_PASSWORD:?set TM_AUTHORIZATION_USER_PASSWORD}
+      TM_SERVER_NAME: ${TM_SERVER_NAME:-PitWall}
+      TM_SERVER_COMMENT: ${TM_SERVER_COMMENT:-}
+      TM_SERVER_PASSWORD: ${TM_SERVER_PASSWORD:-}
+      TM_SERVER_MAX_PLAYERS: ${TM_SERVER_MAX_PLAYERS:-16}
+      TM_SERVER_MAX_SPECTATORS: ${TM_SERVER_MAX_SPECTATORS:-16}
+      TM_SERVER_KEEP_PLAYER_SLOTS: "True"
+      TM_SYSTEM_XMLRPC_ALLOWREMOTE: "True"
+      # Public IP:port announced to players (needed behind Docker NAT), e.g. 203.0.113.10:2350
+      TM_SYSTEM_FORCE_IP_ADDRESS: ${TM_SYSTEM_FORCE_IP_ADDRESS:-}
+    volumes:
+      - tm-userdata:/server/UserData
+
+volumes:
+  tm-userdata:
