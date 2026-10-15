@@ -41,7 +41,7 @@ services:
       - tm-userdata:/server/UserData
 
   pitwall:
-    image: ghcr.io/maksiime/pitwall:sha-9aa5a7b
+    image: ghcr.io/maksiime/pitwall:sha-1cb8c45
     container_name: pitwall
     restart: unless-stopped
     depends_on:
@@ -66,6 +66,9 @@ services:
       PITWALL_NADEO__LOGIN: ${TM_MASTERSERVER_LOGIN}
       PITWALL_NADEO__PASSWORD: ${TM_MASTERSERVER_PASSWORD}
       PITWALL_DISCORD__WEBHOOK_URL: ${PITWALL_DISCORD_WEBHOOK_URL:-}
+      # Every bus event (checkpoints, respawns…) is logged at info by the logger plugin: hidden
+      # by default on the server, "info" shows them again.
+      PITWALL_LOG__FILTER: ${PITWALL_LOG_FILTER:-info,pitwall::events=warn}
     ports:
       # Web dashboard: private address only (Tailscale IP or 127.0.0.1).
       - "${PITWALL_WEB_BIND:-127.0.0.1}:8080:8080"
