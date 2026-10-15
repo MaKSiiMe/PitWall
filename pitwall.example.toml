@@ -13,6 +13,9 @@ call_timeout_secs = 10
 reconnect_delay_secs = 2
 max_reconnect_delay_secs = 30
 matchsettings_dir = "MatchSettings/PitWall"
+# Startup MatchSettings of the server (TM_GAME_SETTINGS in Docker): playlist and mode are
+# saved there after each change so a server restart keeps them. "" = never saved.
+playlist_file = "MatchSettings/default.txt"
 
 [controller]
 default_lang = "fr"         # fr | en

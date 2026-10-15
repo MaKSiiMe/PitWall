@@ -446,3 +446,94 @@ async fn commands_sent_on_connected_reach_the_server() {
         running.shutdown.cancel();
     }
 }
+
+/// Mock with a real playlist: the map calls change it, `b` is being played.
+async fn playlist_mock() -> (MockServer, Arc<Mutex<Vec<String>>>) {
+    let maps = Arc::new(Mutex::new(vec![
+        "a".to_owned(),
+        "b".to_owned(),
+        "c".to_owned(),
+    ]));
+    let m = Arc::clone(&maps);
+    let files = |v: &Value| -> Vec<String> {
+        match v {
+            Value::Array(items) => items
+                .iter()
+                .filter_map(|i| match i {
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                })
+                .collect(),
+            _ => vec![],
+        }
+    };
+    let info = |file: &str| {
+        Value::Struct(
+            [
+                ("UId".to_owned(), Value::from(format!("uid-{file}"))),
+                ("FileName".to_owned(), Value::from(file)),
+            ]
+            .into_iter()
+            .collect(),
+        )
+    };
+    let server = MockServer::with_handler(move |call: &MethodCall| {
+        let mut maps = m.lock().unwrap();
+        match call.method.as_str() {
+            "GetMapList" => Ok(Value::Array(maps.iter().map(|f| info(f)).collect())),
+            "GetCurrentMapInfo" => Ok(info("b")),
+            "AddMap" => {
+                maps.extend(files(&Value::Array(call.params.clone())));
+                Ok(true.into())
+            }
+            "AddMapList" => {
+                maps.extend(files(&call.params[0]));
+                Ok(1.into())
+            }
+            "RemoveMapList" => {
+                let gone = files(&call.params[0]);
+                maps.retain(|f| !gone.contains(f));
+                Ok(1.into())
+            }
+            "SaveMatchSettings" => Ok(Value::from(i32::try_from(maps.len()).unwrap())),
+            _ => default_handler(call),
+        }
+    })
+    .await
+    .unwrap();
+    (server, maps)
+}
+
+#[tokio::test]
+async fn set_playlist_reorders_keeps_the_current_map_flowing_and_saves() {
+    let (server, maps) = playlist_mock().await;
+    let mut running = start(&server, RolesConfig::default()).await;
+    server.send_script_callback(
+        "Maniaplanet.StartMap_Start",
+        &serde_json::json!({"count": 1, "restarted": false, "map": {"uid": "uid-b"}}),
+    );
+    wait_for(&mut running.events, |e| matches!(e, Event::MapStart { .. })).await;
+
+    let commands = running.handles.commands(Actor::Console);
+    let order = vec!["c".to_owned(), "b".to_owned(), "a".to_owned()];
+    commands
+        .call(Command::SetPlaylist {
+            files: order.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(*maps.lock().unwrap(), order);
+    // `b` is playing and now second: the third map comes next.
+    let next = wait_for_call(&server, |c| c.method == "SetNextMapIndex").await;
+    assert_eq!(next.params[0], Value::from(2));
+    let save = wait_for_call(&server, |c| c.method == "SaveMatchSettings").await;
+    assert_eq!(save.params[0], Value::from("MatchSettings/default.txt"));
+
+    // Duplicates and empty lists are refused before touching the server.
+    for files in [vec![], vec!["a".to_owned(), "a".to_owned()]] {
+        let err = commands.call(Command::SetPlaylist { files }).await;
+        assert!(err.is_err());
+    }
+    assert_eq!(*maps.lock().unwrap(), order);
+    running.shutdown.cancel();
+}

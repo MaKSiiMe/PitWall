@@ -10,6 +10,7 @@ pub mod command;
 pub mod event;
 pub mod i18n;
 pub mod matchsettings;
+pub mod playlist;
 pub mod plugin;
 pub mod roles;
 pub mod runtime;

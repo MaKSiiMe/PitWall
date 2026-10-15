@@ -1,5 +1,6 @@
 //! The controller runtime: connection management, state tracking, command execution.
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -18,6 +19,7 @@ use crate::command::{
 use crate::event::{Actor, AuditEntry, Event};
 use crate::i18n::{Lang, Text, Translator};
 use crate::matchsettings;
+use crate::playlist;
 use crate::plugin::{EventBus, Plugin, PluginContext};
 use crate::roles::{Role, RoleBook};
 use crate::state::{Player, StateHandle, now_ms};
@@ -43,6 +45,10 @@ pub struct ServerConfig {
     pub max_reconnect_delay_secs: u64,
     /// Directory (relative to Maps) where generated MatchSettings files go.
     pub matchsettings_dir: String,
+    /// MatchSettings file the server starts with (relative to Maps; `/game_settings` of the
+    /// server, `TM_GAME_SETTINGS` of the Docker image). PitWall saves the playlist and the mode
+    /// there after each change, so a server restart keeps them. Empty: never saved.
+    pub playlist_file: String,
 }
 
 impl Default for ServerConfig {
@@ -58,6 +64,7 @@ impl Default for ServerConfig {
             reconnect_delay_secs: 2,
             max_reconnect_delay_secs: 30,
             matchsettings_dir: "MatchSettings/PitWall".to_owned(),
+            playlist_file: "MatchSettings/default.txt".to_owned(),
         }
     }
 }
@@ -253,6 +260,7 @@ impl Controller {
             handles: handles.clone(),
             pending: Arc::clone(&pending),
             matchsettings_dir: options.server.matchsettings_dir.clone(),
+            playlist_file: options.server.playlist_file.clone(),
         };
         let executor_task = tokio::spawn(executor.run(command_rx, shutdown.clone()));
 
@@ -619,6 +627,8 @@ impl Connection {
                     s.round = 0;
                 });
                 self.verify_pending_switch(client).await;
+                // Captures mode switches once they took effect.
+                save_playlist(client, &self.options.server.playlist_file).await;
                 bus.publish(Event::MapStart {
                     map: Arc::new(map),
                     restarted: l.restarted,
@@ -745,6 +755,7 @@ struct Executor {
     handles: Handles,
     pending: Arc<Mutex<Option<PendingSwitch>>>,
     matchsettings_dir: String,
+    playlist_file: String,
 }
 
 impl Executor {
@@ -799,10 +810,30 @@ impl Executor {
             .borrow()
             .clone()
             .ok_or(CommandError::NotConnected)?;
+        let changes_playlist = matches!(
+            command,
+            Command::UploadMap { .. }
+                | Command::AddMap { .. }
+                | Command::RemoveMap { .. }
+                | Command::SetPlaylist { .. }
+        );
+        let result = self.execute_on(&client, command, actor).await;
+        if changes_playlist && result.is_ok() {
+            save_playlist(&client, &self.playlist_file).await;
+        }
+        result
+    }
+
+    async fn execute_on(
+        &self,
+        client: &GbxClient,
+        command: Command,
+        actor: &Actor,
+    ) -> Result<Value, CommandError> {
         let ok =
             |r: Result<(), GbxError>| r.map(|()| Value::Bool(true)).map_err(CommandError::from);
         match command {
-            Command::Chat { to, text } => self.chat(&client, to, &text).await,
+            Command::Chat { to, text } => self.chat(client, to, &text).await,
             Command::Kick { login, reason } => ok(client.kick(&login, &reason).await),
             Command::Ban {
                 login,
@@ -822,7 +853,7 @@ impl Executor {
                 ok(client.force_spectator(&login, mode.into()).await)
             }
             Command::ForceTeam { login, team } => ok(client.force_player_team(&login, team).await),
-            Command::SwitchMode(switch) => self.switch_mode(&client, switch, actor).await,
+            Command::SwitchMode(switch) => self.switch_mode(client, switch, actor).await,
             Command::SetModeSettings { settings } => {
                 let result = client.set_mode_script_settings(&settings).await;
                 if result.is_ok() {
@@ -867,6 +898,8 @@ impl Executor {
             }
             Command::AddMap { file } => ok(client.add_map(&file).await),
             Command::RemoveMap { file } => ok(client.remove_map(&file).await),
+            Command::SetPlaylist { files } => self.set_playlist(client, files).await,
+            Command::ChooseNextMap { file } => ok(client.choose_next_map(&file).await),
             Command::Manialink {
                 to,
                 xml,
@@ -925,6 +958,62 @@ impl Executor {
         Ok(Value::Bool(true))
     }
 
+    /// Applies a new playlist order (see [`playlist::plan`]); the map after the current one in
+    /// the new order plays next.
+    async fn set_playlist(
+        &self,
+        client: &GbxClient,
+        files: Vec<String>,
+    ) -> Result<Value, CommandError> {
+        if files.is_empty() {
+            return Err(CommandError::Invalid(
+                "the playlist cannot be empty".to_owned(),
+            ));
+        }
+        let mut seen = HashSet::new();
+        if let Some(twice) = files.iter().find(|f| !seen.insert(f.as_str())) {
+            return Err(CommandError::Invalid(format!("{twice} is listed twice")));
+        }
+        let current: Vec<String> = client
+            .get_map_list(5000, 0)
+            .await?
+            .into_iter()
+            .map(|m| m.file_name)
+            .collect();
+        let plan = playlist::plan(&current, &files);
+        if plan.is_empty() {
+            return Ok(Value::Bool(true));
+        }
+        tracing::info!(
+            remove = plan.remove.len(),
+            append = plan.append.len(),
+            "rebuilding the playlist"
+        );
+        if let Some(first) = &plan.add_first {
+            client.add_map(first).await?;
+        }
+        if !plan.remove.is_empty() {
+            client.remove_map_list(&plan.remove).await?;
+        }
+        if !plan.append.is_empty() {
+            client.add_map_list(&plan.append).await?;
+        }
+        let playing = self
+            .handles
+            .state
+            .read(|s| s.map.as_ref().map(|m| m.file_name.clone()));
+        let next = playing
+            .and_then(|p| files.iter().position(|f| *f == p))
+            .map_or(0, |i| (i + 1) % files.len());
+        if let Err(err) = client
+            .set_next_map_index(i32::try_from(next).unwrap_or(0))
+            .await
+        {
+            tracing::warn!(%err, "SetNextMapIndex failed");
+        }
+        Ok(Value::Bool(true))
+    }
+
     /// Hot mode switch: MatchSettings (script + settings + playlist) then a single map load.
     async fn switch_mode(
         &self,
@@ -979,5 +1068,17 @@ impl Executor {
             return Err(err.into());
         }
         Ok(Value::Bool(true))
+    }
+}
+
+/// Saves the playlist and the mode in the server's startup MatchSettings (see
+/// [`ServerConfig::playlist_file`]).
+async fn save_playlist(client: &GbxClient, file: &str) {
+    if file.is_empty() {
+        return;
+    }
+    match client.save_match_settings(file).await {
+        Ok(count) => tracing::debug!(%file, maps = count, "playlist saved"),
+        Err(err) => tracing::warn!(%file, %err, "cannot save the playlist"),
     }
 }

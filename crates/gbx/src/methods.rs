@@ -257,6 +257,22 @@ impl GbxClient {
         self.call_ok("RemoveMap", vec![file.into()]).await
     }
 
+    /// `AddMapList(files)`: at the end of the playlist. Returns the number of maps added.
+    pub async fn add_map_list(&self, files: &[String]) -> Result<i32, GbxError> {
+        self.call_as("AddMapList", vec![string_array(files)]).await
+    }
+
+    /// `RemoveMapList(files)`. Returns the number of maps removed.
+    pub async fn remove_map_list(&self, files: &[String]) -> Result<i32, GbxError> {
+        self.call_as("RemoveMapList", vec![string_array(files)])
+            .await
+    }
+
+    /// `SetNextMapIndex(index)`: playlist index of the map played after the current one.
+    pub async fn set_next_map_index(&self, index: i32) -> Result<(), GbxError> {
+        self.call_ok("SetNextMapIndex", vec![index.into()]).await
+    }
+
     /// `GetMapInfo(file)`.
     pub async fn get_map_info(&self, file: &str) -> Result<MapInfo, GbxError> {
         self.call_as("GetMapInfo", vec![file.into()]).await
@@ -427,4 +443,9 @@ impl GbxClient {
     pub async fn hide_all_manialinks(&self) -> Result<(), GbxError> {
         self.call_ok("SendHideManialinkPage", vec![]).await
     }
+}
+
+/// XML-RPC array of strings (map file lists).
+fn string_array(items: &[String]) -> Value {
+    Value::Array(items.iter().map(|s| Value::from(s.as_str())).collect())
 }

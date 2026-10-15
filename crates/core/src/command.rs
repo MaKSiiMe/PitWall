@@ -114,6 +114,16 @@ pub enum Command {
     RemoveMap {
         file: String,
     },
+    /// Replaces the playlist with these files, in this order (reorder, clear, prune). Files
+    /// must already be on the server; the current map keeps running and the one after it in
+    /// the new order is played next.
+    SetPlaylist {
+        files: Vec<String>,
+    },
+    /// Map (already in the playlist) played after the current one.
+    ChooseNextMap {
+        file: String,
+    },
     Manialink {
         to: Recipients,
         xml: String,
@@ -187,6 +197,8 @@ impl Command {
             Command::UploadMap { .. } => "upload_map",
             Command::AddMap { .. } => "add_map",
             Command::RemoveMap { .. } => "remove_map",
+            Command::SetPlaylist { .. } => "set_playlist",
+            Command::ChooseNextMap { .. } => "choose_next_map",
             Command::AddGuest { .. } => "add_guest",
             Command::RemoveGuest { .. } => "remove_guest",
             Command::CleanGuests => "clean_guests",
