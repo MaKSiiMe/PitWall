@@ -150,26 +150,46 @@ redémarre.
 
 ## 8. Changer les maps
 
-Commandes en jeu (Admin) ou dans la console PitWall :
+**En jeu, sans quitter le serveur** : tape `/maps` ou clique sur **Maps** dans le panneau admin.
+La fenêtre montre la playlist page par page, avec la map en cours surlignée :
+
+| Bouton | Effet |
+| --- | --- |
+| ▲ ▼ | monter / descendre la map d'une place |
+| » | la jouer juste après la map en cours |
+| ▶ | la jouer maintenant |
+| ✕ | la retirer de la playlist |
+| Vider la playlist | garde seulement la map en cours (deux clics pour confirmer) |
+| Ajouter depuis TMX | colle un id ou une URL Trackmania Exchange, puis Entrée, « Ajouter » ou « Jouer ensuite » |
+| Recherche TMX | tape un nom, Entrée : les résultats s'affichent avec **+** (ajouter) et **»** (jouer ensuite) |
+
+La fenêtre se met à jour toute seule après chaque changement, y compris ceux d'un autre admin, et
+à chaque nouvelle map. ✕ en haut à droite la ferme.
+
+Les mêmes actions existent en commandes (chat ou console PitWall). Les numéros sont ceux de
+`/map list` :
 
 | Commande | Effet |
 | --- | --- |
-| `/map list` | playlist actuelle (numéro, nom, fichier) |
-| `/map search <texte>` | recherche sur Trackmania Exchange (5 résultats avec leur id) |
-| `/map tmx <id ou URL> [next]` | télécharge depuis TMX et ajoute à la playlist (`next` : jouée juste après) |
-| `/map uid <uid> [next]` | map Nadeo par son uid (compte serveur requis) |
-| `/map club <club id> <campaign id>` | ajoute toute une campagne de club |
+| `/map list` | playlist actuelle (▶ = map en cours) |
+| `/map move <de> <vers>` | déplacer une map, ex. `/map move 12 1` |
+| `/map next <n>` / `/map play <n>` | jouer la map n ensuite / maintenant |
+| `/map remove [n]` | retirer la map n (sans argument : la map en cours) |
+| `/map clear` | ne garder que la map en cours |
+| `/map tmx <id ou URL> [next]`, `/map search <texte>` | Trackmania Exchange |
+| `/map uid <uid> [next]`, `/map club <club id> <campaign id>` | maps Nadeo (compte serveur requis) |
 | `/map local [fichier]` | fichiers `.Map.Gbx` du dossier de PitWall (`/data/maps` dans le conteneur) |
-| `/map remove [fichier]` | retire un fichier de la playlist (sans argument : la map en cours) |
-| `/next`, `/restart` | passer à la map suivante, recommencer la map |
 
 Les maps téléchargées vont dans `UserData/Maps/PitWall/` sur le serveur. Pour une cup, chaque
 phase peut avoir sa propre liste (`maps = ["PitWall/tmx-123.Map.Gbx", …]` dans le `.toml` de
 la cup), chargée au début de la phase.
 
-Limite actuelle : la playlist modifiée n'est pas sauvegardée. Si le **serveur** Trackmania
-redémarre, il recharge sa playlist de départ (les 25 maps Training). Un redémarrage de PitWall
-seul ne change rien.
+**Sauvegarde** : après chaque changement de playlist et à chaque début de map, PitWall
+enregistre la playlist et le mode dans `MatchSettings/default.txt`, le fichier avec lequel le
+serveur démarre. Un redémarrage du serveur reprend donc la même playlist, dans le même mode.
+La stack Portainer règle les deux côtés avec la même variable `TM_GAME_SETTINGS`. Hors de la
+stack, garde `PITWALL_SERVER__PLAYLIST_FILE` (préfixée de `MatchSettings/`) égale à
+`TM_GAME_SETTINGS`.
 
 ## À vérifier sur un vrai serveur
 
@@ -187,3 +207,9 @@ testés sans serveur réel :
    activer `ChatEnableManualRouting`.
 5. ~~Version d'API~~ : vérifié, le serveur annonce `2023-03-25` (valeur par défaut de PitWall).
 6. **API Nadeo** avec le compte serveur dédié : `/map uid` et `/map club`.
+7. **Gestionnaire de maps** : champs de saisie (`entry`, Entrée et clic lus par ManiaScript),
+   ▲▼ sur la map en cours (elle est retirée puis remise dans la playlist : elle doit continuer
+   sans coupure, et la suivante doit être la bonne).
+8. **Sauvegarde de la playlist** : `SaveMatchSettings` écrit-il aussi le mode et ses réglages
+   `S_*` ? Test : réordonner, passer en `/mode cup`, redémarrer le conteneur `trackmania`, puis
+   vérifier l'ordre et le mode.
