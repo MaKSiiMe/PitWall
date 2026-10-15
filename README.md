@@ -144,7 +144,17 @@ Plugins receive events and send commands; they never touch the socket. See
 cargo test --workspace --all-features      # unit + integration tests (mock server)
 cargo clippy --workspace --all-targets --all-features
 cargo run -p pitwall-ui --example render -- ranking fr    # print a rendered widget
+git config core.hooksPath .githooks     # run the CI checks before every push
 ```
+
+## Deployment
+
+A push to `main` runs the CI. Once it passes, the CI publishes `ghcr.io/maksiime/pitwall:sha-<commit>`
+and writes [deploy/portainer/stack.yml](deploy/portainer/stack.yml), pinned to that image, on the
+`deploy` branch. A Portainer stack linked to that branch (GitOps polling) then redeploys PitWall.
+The Trackmania server image is pinned too: a daily workflow opens a PR when a newer one is
+published. Commits with `[skip deploy]` in their message are not deployed. Setup:
+[docs/GUIDE.fr.md](docs/GUIDE.fr.md), section 7.
 
 ## Known limitations
 

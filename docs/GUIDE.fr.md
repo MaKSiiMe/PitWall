@@ -100,6 +100,78 @@ cargo run -p pitwall-gbx --features mock --example mock_server        # faux ser
 PITWALL_SERVER__PASSWORD=dev cargo run                                 # puis : mode cup
 ```
 
+## 7. Déploiement automatique (PC → GitHub → Debian)
+
+```
+git push main ──► CI GitHub : fmt, clippy, tests
+                  └─► image ghcr.io/maksiime/pitwall:sha-<commit>
+                      └─► branche deploy : stack.yml épinglé sur cette image
+                                     └─► Portainer (polling 5 min) ──► redéploie pitwall
+```
+
+- **Sur ton PC**, le hook `.githooks/pre-push` lance les mêmes vérifications que la CI avant
+  chaque push. Il s'active une fois par clone : `git config core.hooksPath .githooks`. Pour le
+  contourner : `git push --no-verify`.
+- **Un push sur `main` redéploie PitWall**, pas le serveur Trackmania : seule l'image de PitWall
+  change, et le conteneur `trackmania` n'est pas touché. PitWall redémarre en quelques secondes,
+  les joueurs restent connectés. Pour un commit qui ne doit pas partir sur le serveur, ajoute
+  `[skip deploy]` dans son message.
+- **Image du serveur Trackmania** : la version est épinglée dans `deploy/portainer/stack.yml`.
+  Chaque jour, le workflow « Trackmania server image » ouvre une PR quand Evo publie une version
+  plus récente. La fusionner redéploie le serveur, qui redémarre et déconnecte les joueurs : à
+  faire hors d'une cup.
+
+### Mise en place (une fois)
+
+1. **GitHub** → Settings → Actions → General → Workflow permissions : coche « Allow GitHub
+   Actions to create and approve pull requests » (pour les PR de mise à jour de l'image).
+2. Pousse sur `main` et attends que la CI soit verte : la branche `deploy` et le paquet
+   `ghcr.io/maksiime/pitwall` apparaissent. Sur GitHub → ton profil → Packages → `pitwall` →
+   Package settings → Change visibility → **Public**. Sinon, il faut donner à Portainer un
+   identifiant ghcr.io (Registries).
+3. **Portainer** : note le nom de l'ancienne stack, puis supprime-la **sans** supprimer ses
+   volumes (Volumes doit toujours lister `<nom>_tm-userdata` : maps et config du serveur).
+4. Stacks → Add stack → **le même nom** (le volume est alors réutilisé) → **Repository** :
+   - Repository URL : `https://github.com/MaKSiiMe/PitWall`
+   - Repository reference : `refs/heads/deploy`
+   - Compose path : `stack.yml`
+   - GitOps updates : activé, mécanisme **Polling**, intervalle `5m`. Laisse « Re-pull image »
+     et « Force redeployment » désactivés : on ne redéploie que si `stack.yml` change.
+   - Environment variables → Advanced mode : colle `deploy/portainer/stack.env.example` et
+     remplis-le (mêmes valeurs que l'ancienne stack, plus `PITWALL_SUPERADMINS`).
+5. Deploy. Vérification : dans Portainer, les logs du conteneur `pitwall` affichent
+   `connected to the game server`. Le dashboard est sur `http://100.124.153.20:8080`.
+   « Attach » sur le conteneur `pitwall` donne la console (tape `help`).
+6. Sur ton PC, ne lance plus `cargo run` contre ce serveur : deux contrôleurs se marchent dessus.
+   Pour développer, arrête d'abord le conteneur `pitwall` dans Portainer.
+
+L'historique local (`data/pitwall.db`) ne suit pas. Pour le garder, après le premier
+déploiement : arrête `pitwall`, copie le fichier dans le volume `<nom>_pitwall-data`, puis
+redémarre.
+
+## 8. Changer les maps
+
+Commandes en jeu (Admin) ou dans la console PitWall :
+
+| Commande | Effet |
+| --- | --- |
+| `/map list` | playlist actuelle (numéro, nom, fichier) |
+| `/map search <texte>` | recherche sur Trackmania Exchange (5 résultats avec leur id) |
+| `/map tmx <id ou URL> [next]` | télécharge depuis TMX et ajoute à la playlist (`next` : jouée juste après) |
+| `/map uid <uid> [next]` | map Nadeo par son uid (compte serveur requis) |
+| `/map club <club id> <campaign id>` | ajoute toute une campagne de club |
+| `/map local [fichier]` | fichiers `.Map.Gbx` du dossier de PitWall (`/data/maps` dans le conteneur) |
+| `/map remove [fichier]` | retire un fichier de la playlist (sans argument : la map en cours) |
+| `/next`, `/restart` | passer à la map suivante, recommencer la map |
+
+Les maps téléchargées vont dans `UserData/Maps/PitWall/` sur le serveur. Pour une cup, chaque
+phase peut avoir sa propre liste (`maps = ["PitWall/tmx-123.Map.Gbx", …]` dans le `.toml` de
+la cup), chargée au début de la phase.
+
+Limite actuelle : la playlist modifiée n'est pas sauvegardée. Si le **serveur** Trackmania
+redémarre, il recharge sa playlist de départ (les 25 maps Training). Un redémarrage de PitWall
+seul ne change rien.
+
 ## À vérifier sur un vrai serveur
 
 Ces points suivent la documentation et le code d'autres contrôleurs, mais n'ont pas pu être

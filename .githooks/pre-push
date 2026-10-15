@@ -1,0 +1,7 @@
+#!/bin/sh
+# Same checks as the CI before anything reaches GitHub (a push to main deploys the server).
+# Enable once per clone: git config core.hooksPath .githooks — bypass: git push --no-verify
+set -e
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features --quiet -- -D warnings
+cargo test --workspace --all-features --quiet
