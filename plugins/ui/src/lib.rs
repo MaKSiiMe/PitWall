@@ -9,7 +9,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
+use pitwall_core::gbx::Value;
 use pitwall_core::gbx::callbacks::Scores;
+use pitwall_core::gbx::types::MapInfo;
 use pitwall_core::{
     Command, CommandSpec, Event, Invocation, Lang, Plugin, PluginContext, PluginError,
     PluginFuture, Recipients, Role, Text, now_ms,
@@ -17,9 +19,10 @@ use pitwall_core::{
 use pitwall_formats::FormatRegistry;
 use pitwall_formats::cup::{CupSnapshot, CupStatus};
 use pitwall_ui::model::{CupInfoData, RankingData, RankingRow, RecordRow, RecordsData};
-use pitwall_ui::render::{AdminContext, MenuContext};
+use pitwall_ui::render::{AdminContext, MapEntry, MapsWindow, MenuContext, TmxEntry};
 use pitwall_ui::{Layout, Renderer, Theme, WidgetId};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 /// Shared format registry (for the admin panel's format buttons).
 pub type SharedFormats = Arc<RwLock<FormatRegistry>>;
@@ -60,7 +63,10 @@ impl Plugin for UiPlugin {
     }
 
     fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("ui", "ui", Role::Player).usage("/ui <widget|all> [on|off]")]
+        vec![
+            CommandSpec::new("ui", "ui", Role::Player).usage("/ui <widget|all> [on|off]"),
+            CommandSpec::new("ui", "maps", Role::Admin).usage("/maps [page]"),
+        ]
     }
 
     fn translations(&self) -> Vec<(Lang, &'static str)> {
@@ -75,6 +81,7 @@ impl Plugin for UiPlugin {
                 .ok()
                 .and_then(|raw| serde_json::from_str(&raw).ok())
                 .unwrap_or_default();
+            let (playlist_tx, mut playlist_rx) = mpsc::unbounded_channel();
             let mut ui = Ui {
                 renderer: Renderer::new(config.theme, config.layout),
                 formats: self.formats,
@@ -89,6 +96,12 @@ impl Plugin for UiPlugin {
                 dirty: BTreeSet::new(),
                 sent: HashMap::new(),
                 last_data: HashMap::new(),
+                maps: MapsWindows {
+                    open: HashMap::new(),
+                    searches: HashMap::new(),
+                    playlist: Vec::new(),
+                    tx: playlist_tx,
+                },
             };
             let mut flush = tokio::time::interval(Duration::from_millis(250));
             flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -99,6 +112,7 @@ impl Plugin for UiPlugin {
                         None => break,
                     },
                     _ = flush.tick() => ui.flush(&ctx),
+                    Some(playlist) = playlist_rx.recv() => ui.on_playlist(&ctx, playlist),
                 }
             }
             Ok::<(), PluginError>(())
@@ -140,7 +154,30 @@ struct Ui {
     sent: HashMap<String, Sent>,
     /// Last JSON sent per data layer (and language), to skip identical updates.
     last_data: HashMap<(WidgetId, Option<Lang>), String>,
+    maps: MapsWindows,
 }
+
+/// Map manager windows (`/maps`), open for some admins.
+struct MapsWindows {
+    /// Login → page shown.
+    open: HashMap<String, usize>,
+    /// Login → last TMX search (query, results).
+    searches: HashMap<String, (String, Vec<TmxEntry>)>,
+    /// Playlist as last fetched.
+    playlist: Vec<MapInfo>,
+    /// Fetched playlists come back to the event loop through this channel.
+    tx: mpsc::UnboundedSender<Vec<MapInfo>>,
+}
+
+/// Audited commands after which the open map windows are refreshed.
+const PLAYLIST_ACTIONS: [&str; 6] = [
+    "upload_map",
+    "add_map",
+    "remove_map",
+    "set_playlist",
+    "choose_next_map",
+    "jump_to_map",
+];
 
 impl Ui {
     fn prefs(&self, login: &str) -> Prefs {
@@ -518,6 +555,8 @@ impl Ui {
             Event::PlayerJoined { player } => self.send_views(ctx, &player.login),
             Event::PlayerLeft { player, .. } => {
                 self.sent.remove(&player.login);
+                self.maps.open.remove(&player.login);
+                self.maps.searches.remove(&player.login);
             }
             Event::PlayerUpdated { player } => {
                 let role = ctx.roles.get(&player.login);
@@ -561,6 +600,7 @@ impl Ui {
                 self.mark(&[WidgetId::Ranking]);
             }
             Event::MapStart { .. } => {
+                self.fetch_playlist(ctx);
                 self.best.clear();
                 self.finished.clear();
                 self.records = None;
@@ -571,6 +611,14 @@ impl Ui {
                 self.finished.clear();
                 self.mark(&[WidgetId::Ranking]);
             }
+            Event::Audit { entry } if PLAYLIST_ACTIONS.contains(&entry.action.as_str()) => {
+                self.fetch_playlist(ctx);
+            }
+            Event::Custom {
+                source,
+                name,
+                payload,
+            } if source == "maps" && name == "search" => self.on_search(ctx, &payload),
             Event::Custom {
                 source,
                 name,
@@ -579,6 +627,9 @@ impl Ui {
             Event::ManialinkAnswer { login, action, .. } => self.on_click(ctx, &login, &action),
             Event::Command { invocation } if invocation.name == "ui" => {
                 self.on_ui_command(ctx, &invocation)
+            }
+            Event::Command { invocation } if invocation.name == "maps" => {
+                self.on_maps_command(ctx, &invocation)
             }
             _ => {}
         }
@@ -669,6 +720,23 @@ impl Ui {
             ctx.invoke_as_player(login, line);
             return;
         }
+        if action == "pw:maps:close" {
+            if self.maps.open.remove(login).is_some() {
+                match self.renderer.hide_maps_window() {
+                    Ok(xml) => Self::send(ctx, vec![login.to_owned()], xml),
+                    Err(err) => tracing::error!(%err, "cannot render the map window"),
+                }
+            }
+            return;
+        }
+        if let Some(page) = action.strip_prefix("pw:maps:page:") {
+            // Only re-renders the window of an admin who has it open.
+            if let (Some(open), Ok(page)) = (self.maps.open.get_mut(login), page.parse()) {
+                *open = page;
+                self.send_maps_window(ctx, login);
+            }
+            return;
+        }
         if let Some(state) = action.strip_prefix("pw:ui:all:") {
             let hidden = state == "1";
             self.set_prefs(login, |p| p.all_hidden = hidden);
@@ -722,5 +790,117 @@ impl Ui {
             p.all_hidden = false;
         });
         self.send_menu(ctx, &login);
+    }
+
+    /// `/maps [page]`: opens the map manager.
+    fn on_maps_command(&mut self, ctx: &PluginContext, inv: &Invocation) {
+        let Some(login) = inv.login().map(str::to_owned) else {
+            ctx.reply(inv, Text::tr("ui.maps_in_game"));
+            return;
+        };
+        let page = inv
+            .arg(0)
+            .and_then(|p| p.parse::<usize>().ok())
+            .map_or(0, |p| p.saturating_sub(1));
+        self.maps.open.insert(login, page);
+        self.fetch_playlist(ctx);
+    }
+
+    /// Fetches the playlist in the background when a window is open; it comes back through
+    /// the channel to [`Ui::on_playlist`].
+    fn fetch_playlist(&self, ctx: &PluginContext) {
+        if self.maps.open.is_empty() {
+            return;
+        }
+        let commands = ctx.commands.clone();
+        let tx = self.maps.tx.clone();
+        tokio::spawn(async move {
+            let list = commands
+                .call(Command::Raw {
+                    method: "GetMapList".into(),
+                    params: vec![Value::Int(1000), Value::Int(0)],
+                })
+                .await
+                .map_err(|e| e.to_string())
+                .and_then(|v| v.deserialize::<Vec<MapInfo>>().map_err(|e| e.to_string()));
+            match list {
+                Ok(list) => {
+                    let _ = tx.send(list);
+                }
+                Err(err) => tracing::warn!(%err, "cannot fetch the playlist"),
+            }
+        });
+    }
+
+    fn on_playlist(&mut self, ctx: &PluginContext, playlist: Vec<MapInfo>) {
+        self.maps.playlist = playlist;
+        let logins: Vec<String> = self.maps.open.keys().cloned().collect();
+        for login in logins {
+            self.send_maps_window(ctx, &login);
+        }
+    }
+
+    fn on_search(&mut self, ctx: &PluginContext, payload: &serde_json::Value) {
+        let Some(login) = payload["login"].as_str() else {
+            return;
+        };
+        let results = payload["results"]
+            .as_array()
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|r| {
+                        Some(TmxEntry {
+                            id: r["id"].as_u64()?,
+                            name: r["name"].as_str().unwrap_or_default().to_owned(),
+                            author: r["author"].as_str().unwrap_or_default().to_owned(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let query = payload["query"].as_str().unwrap_or_default().to_owned();
+        self.maps
+            .searches
+            .insert(login.to_owned(), (query, results));
+        if self.maps.open.contains_key(login) {
+            self.send_maps_window(ctx, login);
+        }
+    }
+
+    fn send_maps_window(&mut self, ctx: &PluginContext, login: &str) {
+        let Some(player) = ctx.state.player(login) else {
+            self.maps.open.remove(login);
+            return;
+        };
+        if ctx.roles.get(login) < Role::Admin {
+            self.maps.open.remove(login);
+            return;
+        }
+        let playing = ctx
+            .state
+            .read(|s| s.map.as_ref().map(|m| m.file_name.clone()));
+        let playlist = &self.maps.playlist;
+        let (query, results) = self.maps.searches.get(login).cloned().unwrap_or_default();
+        let window = MapsWindow {
+            maps: playlist
+                .iter()
+                .map(|m| MapEntry {
+                    name: m.name.clone(),
+                    author: if m.author_nickname.is_empty() {
+                        m.author.clone()
+                    } else {
+                        m.author_nickname.clone()
+                    },
+                })
+                .collect(),
+            current: playing.and_then(|p| playlist.iter().position(|m| m.file_name == p)),
+            page: self.maps.open.get(login).copied().unwrap_or_default(),
+            query,
+            results,
+        };
+        match self.renderer.maps_window(player.lang, &ctx.i18n, &window) {
+            Ok(xml) => Self::send(ctx, vec![login.to_owned()], xml),
+            Err(err) => tracing::error!(%err, "cannot render the map window"),
+        }
     }
 }

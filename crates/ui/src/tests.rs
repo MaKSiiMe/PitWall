@@ -5,7 +5,7 @@ use quick_xml::Reader;
 use quick_xml::events::Event;
 
 use crate::model::{RankingData, RankingRow};
-use crate::render::{AdminContext, MenuContext, ms_string};
+use crate::render::{AdminContext, MapEntry, MapsWindow, MenuContext, TmxEntry, ms_string};
 use crate::{Renderer, WidgetId, catalogs};
 
 fn translator() -> Translator {
@@ -197,6 +197,80 @@ fn menu_reflects_preferences() {
         .unwrap();
     assert!(hidden.contains("PitWall_HideAll = True;"));
     assert!(hidden.contains("pw:ui:all:0"));
+}
+
+fn maps_window(count: usize) -> MapsWindow {
+    MapsWindow {
+        maps: (1..=count)
+            .map(|i| MapEntry {
+                name: format!("$f00Map <{i}> & \"co\""),
+                author: format!("author{i}"),
+            })
+            .collect(),
+        current: Some(1),
+        page: 0,
+        query: String::new(),
+        results: vec![],
+    }
+}
+
+#[test]
+fn maps_window_renders_the_playlist() {
+    let renderer = Renderer::default();
+    let i18n = translator();
+    for lang in Lang::ALL {
+        let xml = renderer.maps_window(lang, &i18n, &maps_window(3)).unwrap();
+        check_script(&check_xml(&xml));
+        assert!(xml.contains(r#"id="PitWall_Maps""#));
+    }
+    let xml = renderer
+        .maps_window(Lang::En, &i18n, &maps_window(3))
+        .unwrap();
+    // Map names are escaped.
+    assert!(xml.contains("Map &#60;1&#62; &#38; &#34;co&#34;"), "{xml}");
+    assert!(xml.contains("pw:cmd:map move 2 1") && xml.contains("pw:cmd:map move 2 3"));
+    assert!(
+        !xml.contains("pw:cmd:map move 1 0"),
+        "first map cannot go up"
+    );
+    assert!(
+        !xml.contains("pw:cmd:map move 3 4"),
+        "last map cannot go down"
+    );
+    // Map 2 is being played: no "play now" / "next" for it.
+    assert!(!xml.contains("pw:cmd:map play 2") && xml.contains("pw:cmd:map play 3"));
+    assert!(xml.contains("pw:cmd:map remove 2"));
+    assert!(xml.contains("pw:cmd:map clear"));
+    assert!(!xml.contains("pw:maps:page:"), "a single page");
+}
+
+#[test]
+fn maps_window_pages_and_search() {
+    let renderer = Renderer::default();
+    let i18n = translator();
+    let mut window = maps_window(40);
+    window.page = 1;
+    window.query = "winter".into();
+    window.results = vec![TmxEntry {
+        id: 361_306,
+        name: "Snow".into(),
+        author: "someone".into(),
+    }];
+    let xml = renderer.maps_window(Lang::Fr, &i18n, &window).unwrap();
+    check_script(&check_xml(&xml));
+    assert!(xml.contains("Page 2/3"));
+    assert!(xml.contains("pw:maps:page:0") && xml.contains("pw:maps:page:2"));
+    // Second page: maps 16 to 30.
+    assert!(xml.contains("pw:cmd:map remove 16") && xml.contains("pw:cmd:map remove 30"));
+    assert!(!xml.contains("pw:cmd:map remove 15") && !xml.contains("pw:cmd:map remove 31"));
+    assert!(xml.contains("pw:cmd:map tmx 361306\"") && xml.contains("pw:cmd:map tmx 361306 next"));
+    assert!(xml.contains(r#"default="winter""#));
+
+    window.page = 99;
+    window.results.clear();
+    let xml = renderer.maps_window(Lang::Fr, &i18n, &window).unwrap();
+    assert!(xml.contains("Page 3/3"), "page is clamped");
+    assert!(xml.contains("Aucune map trouvée"));
 }
 
 #[test]

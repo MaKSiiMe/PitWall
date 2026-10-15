@@ -1,7 +1,7 @@
 //! Renders widget pages.
 
 use askama::Template;
-use pitwall_core::{Lang, Role, Translator};
+use pitwall_core::{Lang, Role, Text, Translator};
 use serde::Serialize;
 
 use crate::theme::{Layout, Theme};
@@ -191,6 +191,102 @@ struct MenuTemplate {
     toggles: Vec<Toggle>,
 }
 
+/// Manialink id of the map manager window.
+pub const MAPS_WINDOW_ID: &str = "PitWall_Maps";
+/// Playlist rows per page of the map manager.
+pub const MAPS_PER_PAGE: usize = 15;
+/// TMX search results shown in the map manager.
+pub const MAPS_MAX_RESULTS: usize = 7;
+
+/// A playlist map in the map manager.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MapEntry {
+    pub name: String,
+    pub author: String,
+}
+
+/// A TMX search result in the map manager.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TmxEntry {
+    pub id: u64,
+    pub name: String,
+    pub author: String,
+}
+
+/// Everything the map manager window shows to one admin.
+#[derive(Debug, Clone, Default)]
+pub struct MapsWindow {
+    /// The whole playlist, in order.
+    pub maps: Vec<MapEntry>,
+    /// Index of the map being played.
+    pub current: Option<usize>,
+    /// Page shown, from 0 (clamped).
+    pub page: usize,
+    /// Last TMX search of this admin, if any.
+    pub query: String,
+    pub results: Vec<TmxEntry>,
+}
+
+impl MapsWindow {
+    pub fn pages(&self) -> usize {
+        self.maps.len().div_ceil(MAPS_PER_PAGE).max(1)
+    }
+}
+
+struct RowButton {
+    x: String,
+    label: &'static str,
+    action: String,
+    color: String,
+}
+
+struct MapLine {
+    y: String,
+    number: usize,
+    name: String,
+    author: String,
+    current: bool,
+    odd: bool,
+    buttons: Vec<RowButton>,
+}
+
+struct ResultLine {
+    y: String,
+    name: String,
+    author: String,
+    add: String,
+    add_next: String,
+}
+
+#[derive(Template)]
+#[template(path = "maps_window.xml")]
+struct MapsWindowTemplate {
+    id: &'static str,
+    theme: Theme,
+    bg_opacity: String,
+    bg_rgba: String,
+    title: String,
+    rows: Vec<MapLine>,
+    empty_label: String,
+    pages: usize,
+    page_label: String,
+    prev_action: Option<String>,
+    next_action: Option<String>,
+    clear_label: String,
+    clear_label_ms: String,
+    clear_confirm_ms: String,
+    legend: String,
+    add_title: String,
+    add_label: String,
+    add_next_label: String,
+    search_title: String,
+    search_label: String,
+    query: String,
+    results: Vec<ResultLine>,
+    no_result: bool,
+    no_result_label: String,
+}
+
 /// Renders pages with a theme and a layout.
 #[derive(Debug, Clone, Default)]
 pub struct Renderer {
@@ -353,6 +449,7 @@ impl Renderer {
         }
         if ctx.role >= Role::Admin {
             entries.push((t("ui.btn_next"), "next".into()));
+            entries.push((t("ui.btn_maps"), "maps".into()));
             entries.push((t("ui.btn_endwarmup"), "endwarmup".into()));
             if ctx.cup_loaded {
                 entries.push((t("ui.btn_cup_start"), "cup start".into()));
@@ -394,6 +491,117 @@ impl Renderer {
             body_height: real(rows * 4.9 + 1.5),
             button_width: real(button_width),
             buttons,
+        }
+        .render()?)
+    }
+
+    /// Map manager window. Buttons send `pw:cmd:map …` (role-checked on arrival) and
+    /// `pw:maps:page:<n>` / `pw:maps:close`, handled by the UI plugin.
+    pub fn maps_window(
+        &self,
+        lang: Lang,
+        i18n: &Translator,
+        window: &MapsWindow,
+    ) -> Result<String, RenderError> {
+        let t = |key: &str| i18n.t(lang, key);
+        let c = self.common(WidgetId::AdminPanel);
+        let total = window.maps.len();
+        let pages = window.pages();
+        let page = window.page.min(pages - 1);
+        let first = page * MAPS_PER_PAGE;
+        let rows = window
+            .maps
+            .iter()
+            .enumerate()
+            .skip(first)
+            .take(MAPS_PER_PAGE)
+            .map(|(i, map)| {
+                let n = i + 1;
+                let current = window.current == Some(i);
+                let mut buttons = Vec::new();
+                let mut button = |slot: usize, label, action: String, color: &str| {
+                    buttons.push(RowButton {
+                        x: real(81.0 + slot as f32 * 4.2),
+                        label,
+                        action: format!("pw:cmd:map {action}"),
+                        color: color.to_owned(),
+                    });
+                };
+                let accent = &self.theme.accent;
+                if n > 1 {
+                    button(0, "▲", format!("move {n} {}", n - 1), accent);
+                }
+                if n < total {
+                    button(1, "▼", format!("move {n} {}", n + 1), accent);
+                }
+                if !current {
+                    button(2, "»", format!("next {n}"), accent);
+                    button(3, "▶", format!("play {n}"), accent);
+                }
+                button(4, "✕", format!("remove {n}"), &self.theme.bad);
+                MapLine {
+                    y: real(-8.0 - (i - first) as f32 * 5.8),
+                    number: n,
+                    name: map.name.clone(),
+                    author: map.author.clone(),
+                    current,
+                    odd: (i - first) % 2 == 1,
+                    buttons,
+                }
+            })
+            .collect();
+        let results = window
+            .results
+            .iter()
+            .take(MAPS_MAX_RESULTS)
+            .enumerate()
+            .map(|(i, r)| ResultLine {
+                y: real(-49.0 - i as f32 * 7.0),
+                name: r.name.clone(),
+                author: r.author.clone(),
+                add: format!("pw:cmd:map tmx {}", r.id),
+                add_next: format!("pw:cmd:map tmx {} next", r.id),
+            })
+            .collect();
+        let clear_label = t("ui.maps_clear");
+        Ok(MapsWindowTemplate {
+            id: MAPS_WINDOW_ID,
+            theme: c.theme,
+            bg_opacity: real(self.theme.background_opacity.max(0.9)),
+            bg_rgba: c.bg_rgba,
+            title: i18n.render(lang, &Text::tr("ui.maps_title").arg("count", total)),
+            rows,
+            empty_label: t("ui.maps_empty"),
+            pages,
+            page_label: i18n.render(
+                lang,
+                &Text::tr("ui.maps_page")
+                    .arg("page", page + 1)
+                    .arg("pages", pages),
+            ),
+            prev_action: (page > 0).then(|| format!("pw:maps:page:{}", page - 1)),
+            next_action: (page + 1 < pages).then(|| format!("pw:maps:page:{}", page + 1)),
+            clear_label_ms: ms_string(&clear_label),
+            clear_label,
+            clear_confirm_ms: ms_string(&t("ui.maps_clear_confirm")),
+            legend: t("ui.maps_legend"),
+            add_title: t("ui.maps_add_title"),
+            add_label: t("ui.maps_add"),
+            add_next_label: t("ui.maps_add_next"),
+            search_title: t("ui.maps_search_title"),
+            search_label: t("ui.maps_search"),
+            query: window.query.clone(),
+            no_result: !window.query.is_empty() && window.results.is_empty(),
+            no_result_label: t("ui.maps_no_result"),
+            results,
+        }
+        .render()?)
+    }
+
+    /// Empty page closing the map manager.
+    pub fn hide_maps_window(&self) -> Result<String, RenderError> {
+        Ok(HideTemplate {
+            id: MAPS_WINDOW_ID.to_owned(),
         }
         .render()?)
     }

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use pitwall_core::gbx::Value;
 use pitwall_core::gbx::types::MapInfo;
 use pitwall_core::{
-    Command, CommandSpec, Event, Invocation, Lang, Plugin, PluginContext, PluginError,
+    Command, CommandSpec, Event, EventBus, Invocation, Lang, Plugin, PluginContext, PluginError,
     PluginFuture, Replier, Role, StateHandle, Text, now_ms,
 };
 use pitwall_integrations::nadeo::Nadeo;
@@ -61,7 +61,6 @@ impl Plugin for MapsPlugin {
     fn commands(&self) -> Vec<CommandSpec> {
         vec![
             CommandSpec::new("maps", "map", Role::Admin)
-                .alias("maps")
                 .usage("/map <list|move|next|play|remove|clear|tmx|search|uid|club|local> ..."),
         ]
     }
@@ -85,6 +84,7 @@ impl Plugin for MapsPlugin {
                         replier: ctx.replier(&invocation),
                         commands: ctx.commands_for(&invocation),
                         state: ctx.state.clone(),
+                        bus: ctx.bus.clone(),
                     };
                     tokio::spawn(async move {
                         if let Err(message) = this.handle(&job, &invocation).await {
@@ -104,6 +104,7 @@ struct Job {
     replier: Replier,
     commands: pitwall_core::CommandHandle,
     state: StateHandle,
+    bus: EventBus,
 }
 
 impl Job {
@@ -156,6 +157,24 @@ impl MapsPlugin {
                     .map_err(|e| e.to_string())?;
                 if found.is_empty() {
                     job.replier.say(Text::tr("maps.search_none"));
+                }
+                // For the map manager window of the UI plugin.
+                if let Some(login) = inv.login() {
+                    let results: Vec<_> = found
+                        .iter()
+                        .map(|m| {
+                            serde_json::json!({
+                                "id": m.map_id,
+                                "name": m.gbx_map_name,
+                                "author": m.uploader.name,
+                            })
+                        })
+                        .collect();
+                    job.bus.publish(Event::custom(
+                        "maps",
+                        "search",
+                        serde_json::json!({ "login": login, "query": query, "results": results }),
+                    ));
                 }
                 for map in found {
                     job.replier.say(
