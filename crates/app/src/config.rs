@@ -194,6 +194,29 @@ skip = ["checkpoint"]
     }
 
     #[test]
+    fn lists_from_environment() {
+        // The Portainer stack has no pitwall.toml: roles come from the environment.
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("PITWALL_SERVER__PASSWORD", "pw");
+            jail.set_env(
+                "PITWALL_ROLES__SUPERADMINS",
+                r#"["X6N6WxRIR_Sj6Xr10yuDJA"]"#,
+            );
+            jail.set_env("PITWALL_ROLES__ADMINS", "[a_login, b-login]");
+            let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
+            assert_eq!(
+                config.roles.superadmins,
+                vec!["X6N6WxRIR_Sj6Xr10yuDJA".to_owned()]
+            );
+            assert_eq!(
+                config.roles.admins,
+                vec!["a_login".to_owned(), "b-login".to_owned()]
+            );
+            Ok(())
+        });
+    }
+
+    #[test]
     fn password_is_required() {
         figment::Jail::expect_with(|_jail| {
             let err = load(Path::new("missing.toml")).unwrap_err();
