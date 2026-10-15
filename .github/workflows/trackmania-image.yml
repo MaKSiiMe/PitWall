@@ -1,0 +1,55 @@
+name: Trackmania server image
+
+# Evo tags evoesports/trackmania with the date of the Nadeo server release it contains.
+# Every day, compare the newest dated tag with the one pinned in the stack and open a PR to
+# bump it. Merging the PR deploys it (CI → deploy branch → Portainer), which restarts the game
+# server: merge it outside of a cup.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare tags
+        id: tags
+        run: |
+          current=$(grep -oP 'evoesports/trackmania:\K[0-9-]+' deploy/portainer/stack.yml)
+          latest=$(curl -fsS 'https://hub.docker.com/v2/repositories/evoesports/trackmania/tags?page_size=100' \
+            | jq -r '.results[].name | select(test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))' | sort | tail -n1)
+          echo "current=$current latest=$latest"
+          test -n "$current" && test -n "$latest"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [[ "$latest" > "$current" ]]; then echo "newer=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Open the PR
+        if: steps.tags.outputs.newer == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT: ${{ steps.tags.outputs.current }}
+          LATEST: ${{ steps.tags.outputs.latest }}
+        run: |
+          branch="trackmania-$LATEST"
+          if git ls-remote --exit-code --heads origin "$branch"; then
+            echo "PR branch already exists"; exit 0
+          fi
+          sed -i "s|evoesports/trackmania:$CURRENT|evoesports/trackmania:$LATEST|" deploy/portainer/stack.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "deploy: Trackmania server image $LATEST"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "deploy: Trackmania server image $LATEST" \
+            --body "Evo a publié \`evoesports/trackmania:$LATEST\` (actuellement \`$CURRENT\`).
+
+          Fusionner redéploie le serveur : il redémarre et les joueurs sont déconnectés. À faire hors d'une cup.
+          Notes : https://github.com/EvoTM/docker-trackmania"
