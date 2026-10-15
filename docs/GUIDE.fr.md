@@ -126,9 +126,8 @@ git push main ──► CI GitHub : fmt, clippy, tests
 1. **GitHub** → Settings → Actions → General → Workflow permissions : coche « Allow GitHub
    Actions to create and approve pull requests » (pour les PR de mise à jour de l'image).
 2. Pousse sur `main` et attends que la CI soit verte : la branche `deploy` et le paquet
-   `ghcr.io/maksiime/pitwall` apparaissent. Sur GitHub → ton profil → Packages → `pitwall` →
-   Package settings → Change visibility → **Public**. Sinon, il faut donner à Portainer un
-   identifiant ghcr.io (Registries).
+   `ghcr.io/maksiime/pitwall` apparaissent. Le paquet est public comme le dépôt, Portainer n'a
+   pas besoin d'identifiants.
 3. **Portainer** : note le nom de l'ancienne stack, puis supprime-la **sans** supprimer ses
    volumes (Volumes doit toujours lister `<nom>_tm-userdata` : maps et config du serveur).
 4. Stacks → Add stack → **le même nom** (le volume est alors réutilisé) → **Repository** :
