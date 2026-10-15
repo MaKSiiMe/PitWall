@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use pitwall_core::gbx::Value;
-use pitwall_core::gbx::mock::{MockServer, default_handler};
+use pitwall_core::gbx::mock::{MockPlaylist, MockServer, default_handler, playlist_handler};
 use pitwall_core::gbx::types::ScriptSetting;
 use pitwall_core::gbx::xml::MethodCall;
 use pitwall_core::{
@@ -447,61 +447,16 @@ async fn commands_sent_on_connected_reach_the_server() {
     }
 }
 
-/// Mock with a real playlist: the map calls change it, `b` is being played.
-async fn playlist_mock() -> (MockServer, Arc<Mutex<Vec<String>>>) {
-    let maps = Arc::new(Mutex::new(vec![
-        "a".to_owned(),
-        "b".to_owned(),
-        "c".to_owned(),
-    ]));
-    let m = Arc::clone(&maps);
-    let files = |v: &Value| -> Vec<String> {
-        match v {
-            Value::Array(items) => items
-                .iter()
-                .filter_map(|i| match i {
-                    Value::String(s) => Some(s.clone()),
-                    _ => None,
-                })
-                .collect(),
-            _ => vec![],
-        }
-    };
-    let info = |file: &str| {
-        Value::Struct(
-            [
-                ("UId".to_owned(), Value::from(format!("uid-{file}"))),
-                ("FileName".to_owned(), Value::from(file)),
-            ]
-            .into_iter()
-            .collect(),
-        )
-    };
-    let server = MockServer::with_handler(move |call: &MethodCall| {
-        let mut maps = m.lock().unwrap();
-        match call.method.as_str() {
-            "GetMapList" => Ok(Value::Array(maps.iter().map(|f| info(f)).collect())),
-            "GetCurrentMapInfo" => Ok(info("b")),
-            "AddMap" => {
-                maps.extend(files(&Value::Array(call.params.clone())));
-                Ok(true.into())
-            }
-            "AddMapList" => {
-                maps.extend(files(&call.params[0]));
-                Ok(1.into())
-            }
-            "RemoveMapList" => {
-                let gone = files(&call.params[0]);
-                maps.retain(|f| !gone.contains(f));
-                Ok(1.into())
-            }
-            "SaveMatchSettings" => Ok(Value::from(i32::try_from(maps.len()).unwrap())),
-            _ => default_handler(call),
-        }
-    })
-    .await
-    .unwrap();
-    (server, maps)
+/// Mock with a real playlist; `b` is being played.
+async fn playlist_mock() -> (MockServer, Arc<Mutex<MockPlaylist>>) {
+    let playlist = Arc::new(Mutex::new(MockPlaylist {
+        maps: vec!["a".to_owned(), "b".to_owned(), "c".to_owned()],
+        playing: "b".to_owned(),
+    }));
+    let server = MockServer::with_handler(playlist_handler(Arc::clone(&playlist)))
+        .await
+        .unwrap();
+    (server, playlist)
 }
 
 #[tokio::test]
@@ -522,7 +477,7 @@ async fn set_playlist_reorders_keeps_the_current_map_flowing_and_saves() {
         })
         .await
         .unwrap();
-    assert_eq!(*maps.lock().unwrap(), order);
+    assert_eq!(maps.lock().unwrap().maps, order);
     // `b` is playing and now second: the third map comes next.
     let next = wait_for_call(&server, |c| c.method == "SetNextMapIndex").await;
     assert_eq!(next.params[0], Value::from(2));
@@ -534,6 +489,6 @@ async fn set_playlist_reorders_keeps_the_current_map_flowing_and_saves() {
         let err = commands.call(Command::SetPlaylist { files }).await;
         assert!(err.is_err());
     }
-    assert_eq!(*maps.lock().unwrap(), order);
+    assert_eq!(maps.lock().unwrap().maps, order);
     running.shutdown.cancel();
 }

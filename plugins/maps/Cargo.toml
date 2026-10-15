@@ -22,3 +22,4 @@ workspace = true
 pitwall-gbx = { workspace = true, features = ["mock"] }
 pitwall-integrations.workspace = true
 tokio-util.workspace = true
+serde_json.workspace = true

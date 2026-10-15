@@ -90,6 +90,80 @@ pub fn default_handler(call: &MethodCall) -> MethodResponse {
     })
 }
 
+/// Playlist kept by [`playlist_handler`]: map files in order, and the one being played.
+#[derive(Debug, Clone, Default)]
+pub struct MockPlaylist {
+    pub maps: Vec<String>,
+    pub playing: String,
+}
+
+/// Handler that keeps a real playlist (map calls change it, `GetMapList` reads it; uids are
+/// `uid-<file>`), falling back to [`default_handler`].
+pub fn playlist_handler(
+    playlist: Arc<Mutex<MockPlaylist>>,
+) -> impl Fn(&MethodCall) -> MethodResponse + Send + Sync + 'static {
+    fn files(v: Option<&Value>) -> Vec<String> {
+        match v {
+            Some(Value::Array(items)) => items
+                .iter()
+                .filter_map(|i| i.as_str().map(str::to_owned))
+                .collect(),
+            Some(v) => v.as_str().map(str::to_owned).into_iter().collect(),
+            None => vec![],
+        }
+    }
+    fn info(file: &str) -> Value {
+        Value::Struct(
+            [
+                ("UId".to_owned(), Value::from(format!("uid-{file}"))),
+                ("Name".to_owned(), Value::from(file)),
+                ("FileName".to_owned(), Value::from(file)),
+            ]
+            .into_iter()
+            .collect(),
+        )
+    }
+    move |call: &MethodCall| {
+        let mut p = playlist.lock().unwrap_or_else(PoisonError::into_inner);
+        let count = |n: usize| Value::from(i32::try_from(n).unwrap_or(i32::MAX));
+        Ok(match call.method.as_str() {
+            "GetMapList" => Value::Array(p.maps.iter().map(|f| info(f)).collect()),
+            "GetCurrentMapInfo" => info(&p.playing),
+            "GetCurrentMapIndex" => {
+                let index = p.maps.iter().position(|f| *f == p.playing);
+                count(index.unwrap_or(0))
+            }
+            "AddMap" | "AddMapList" => {
+                let added = files(call.params.first());
+                p.maps.extend(added.iter().cloned());
+                if call.method == "AddMap" {
+                    true.into()
+                } else {
+                    count(added.len())
+                }
+            }
+            "RemoveMap" | "RemoveMapList" => {
+                let gone = files(call.params.first());
+                p.maps.retain(|f| !gone.contains(f));
+                if call.method == "RemoveMap" {
+                    true.into()
+                } else {
+                    count(gone.len())
+                }
+            }
+            "JumpToMapIdent" => {
+                let uid = call.params.first().and_then(Value::as_str).unwrap_or("");
+                if let Some(file) = uid.strip_prefix("uid-") {
+                    p.playing = file.to_owned();
+                }
+                true.into()
+            }
+            "SaveMatchSettings" => count(p.maps.len()),
+            _ => return default_handler(call),
+        })
+    }
+}
+
 impl MockServer {
     /// Starts a server with [`default_handler`].
     pub async fn start() -> std::io::Result<MockServer> {

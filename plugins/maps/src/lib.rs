@@ -10,7 +10,7 @@ use pitwall_core::gbx::Value;
 use pitwall_core::gbx::types::MapInfo;
 use pitwall_core::{
     Command, CommandSpec, Event, Invocation, Lang, Plugin, PluginContext, PluginError,
-    PluginFuture, Replier, Role, Text, now_ms,
+    PluginFuture, Replier, Role, StateHandle, Text, now_ms,
 };
 use pitwall_integrations::nadeo::Nadeo;
 use pitwall_integrations::tmx::{self, Tmx};
@@ -62,7 +62,7 @@ impl Plugin for MapsPlugin {
         vec![
             CommandSpec::new("maps", "map", Role::Admin)
                 .alias("maps")
-                .usage("/map <tmx|search|uid|club|local|list|remove> ..."),
+                .usage("/map <list|move|next|play|remove|clear|tmx|search|uid|club|local> ..."),
         ]
     }
 
@@ -84,6 +84,7 @@ impl Plugin for MapsPlugin {
                     let job = Job {
                         replier: ctx.replier(&invocation),
                         commands: ctx.commands_for(&invocation),
+                        state: ctx.state.clone(),
                     };
                     tokio::spawn(async move {
                         if let Err(message) = this.handle(&job, &invocation).await {
@@ -102,12 +103,25 @@ impl Plugin for MapsPlugin {
 struct Job {
     replier: Replier,
     commands: pitwall_core::CommandHandle,
+    state: StateHandle,
+}
+
+impl Job {
+    /// File of the map being played.
+    fn playing(&self) -> Option<String> {
+        self.state
+            .read(|s| s.map.as_ref().map(|m| m.file_name.clone()))
+            .filter(|f| !f.is_empty())
+    }
 }
 
 impl MapsPlugin {
     async fn handle(&self, job: &Job, inv: &Invocation) -> Result<(), String> {
         let usage = || {
-            Text::tr("core.usage").arg("usage", "/map <tmx|search|uid|club|local|list|remove> ...")
+            Text::tr("core.usage").arg(
+                "usage",
+                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|local> ...",
+            )
         };
         match inv.arg(0) {
             Some("tmx") => {
@@ -250,9 +264,15 @@ impl MapsPlugin {
             },
             Some("list") => {
                 let maps = self.map_list(job).await?;
+                let playing = job.playing();
                 for (i, map) in maps.iter().enumerate() {
+                    let key = if Some(&map.file_name) == playing.as_ref() {
+                        "maps.list_current"
+                    } else {
+                        "maps.list_entry"
+                    };
                     job.replier.say(
-                        Text::tr("maps.list_entry")
+                        Text::tr(key)
                             .arg("index", i + 1)
                             .arg("name", &map.name)
                             .arg("file", &map.file_name),
@@ -261,19 +281,8 @@ impl MapsPlugin {
             }
             Some("remove") => {
                 let file = match inv.arg(1) {
-                    Some(file) => file.to_owned(),
-                    None => {
-                        let current = job
-                            .commands
-                            .call(Command::Raw {
-                                method: "GetCurrentMapInfo".into(),
-                                params: vec![],
-                            })
-                            .await
-                            .map_err(|e| e.to_string())?;
-                        let info: MapInfo = current.deserialize().map_err(|e| e.to_string())?;
-                        info.file_name
-                    }
+                    Some(arg) => self.find(job, arg).await?.file_name,
+                    None => job.playing().ok_or("no map is being played")?,
                 };
                 job.commands
                     .call(Command::RemoveMap { file })
@@ -281,9 +290,79 @@ impl MapsPlugin {
                     .map_err(|e| e.to_string())?;
                 job.replier.say(Text::tr("maps.removed"));
             }
+            Some("move") => {
+                let (Some(from), Some(to)) = (
+                    inv.arg(1).and_then(|v| v.parse::<usize>().ok()),
+                    inv.arg(2).and_then(|v| v.parse::<usize>().ok()),
+                ) else {
+                    job.replier
+                        .say(Text::tr("core.usage").arg("usage", "/map move <from> <to>"));
+                    return Ok(());
+                };
+                let mut files: Vec<String> = self
+                    .map_list(job)
+                    .await?
+                    .into_iter()
+                    .map(|m| m.file_name)
+                    .collect();
+                let range = 1..=files.len();
+                if !range.contains(&from) || !range.contains(&to) {
+                    return Err(format!("positions go from 1 to {}", files.len()));
+                }
+                let file = files.remove(from - 1);
+                files.insert(to - 1, file);
+                job.commands
+                    .call(Command::SetPlaylist { files })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                job.replier
+                    .say(Text::tr("maps.moved").arg("from", from).arg("to", to));
+            }
+            Some("next") => {
+                let map = self
+                    .find(job, inv.arg(1).ok_or("expected a map number or file")?)
+                    .await?;
+                job.commands
+                    .call(Command::ChooseNextMap {
+                        file: map.file_name,
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                job.replier
+                    .say(Text::tr("maps.queued").arg("name", &map.name));
+            }
+            Some("play") => {
+                let map = self
+                    .find(job, inv.arg(1).ok_or("expected a map number or file")?)
+                    .await?;
+                job.commands
+                    .call(Command::JumpToMap { uid: map.uid })
+                    .await
+                    .map_err(|e| e.to_string())?;
+            }
+            Some("clear") => {
+                let playing = job.playing().ok_or("no map is being played")?;
+                job.commands
+                    .call(Command::SetPlaylist {
+                        files: vec![playing],
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+                job.replier.say(Text::tr("maps.cleared"));
+            }
             _ => job.replier.say(usage()),
         }
         Ok(())
+    }
+
+    /// A playlist map by its number in `/map list` or its file name.
+    async fn find(&self, job: &Job, arg: &str) -> Result<MapInfo, String> {
+        let maps = self.map_list(job).await?;
+        let found = match arg.parse::<usize>() {
+            Ok(n) => n.checked_sub(1).and_then(|i| maps.get(i)).cloned(),
+            Err(_) => maps.iter().find(|m| m.file_name == arg).cloned(),
+        };
+        found.ok_or_else(|| format!("{arg}: not in the playlist (see /map list)"))
     }
 
     async fn map_list(&self, job: &Job) -> Result<Vec<MapInfo>, String> {
@@ -333,9 +412,8 @@ impl MapsPlugin {
             .map_err(|e| e.to_string())?;
         if next {
             job.commands
-                .call(Command::Raw {
-                    method: "ChooseNextMap".into(),
-                    params: vec![file.into()],
+                .call(Command::ChooseNextMap {
+                    file: file.to_owned(),
                 })
                 .await
                 .map_err(|e| e.to_string())?;
