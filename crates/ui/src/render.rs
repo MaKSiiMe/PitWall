@@ -536,9 +536,9 @@ impl Renderer {
                 }
                 if !current {
                     button(2, "»", format!("next {n}"), accent);
-                    button(3, "▶", format!("play {n}"), accent);
+                    button(3, ">", format!("play {n}"), accent);
                 }
-                button(4, "✕", format!("remove {n}"), &self.theme.bad);
+                button(4, "X", format!("remove {n}"), &self.theme.bad);
                 MapLine {
                     y: real(-8.0 - (i - first) as f32 * 5.8),
                     number: n,

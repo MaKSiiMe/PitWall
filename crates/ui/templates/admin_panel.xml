@@ -3,7 +3,7 @@
 	<quad pos="0 0" z-index="0" size="{{ width }} 5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}" scriptevents="1" id="pw-admin-toggle"/>
 	<quad pos="0 0" z-index="1" size="0.6 5" bgcolor="{{ theme.accent }}"/>
 	<label pos="2.5 -2.5" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.text }}" text="{{ title }}"/>
-	<label pos="{{ chevron_x }} -2.5" z-index="2" size="4 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" text="▾" id="pw-admin-chevron"/>
+	<label pos="{{ chevron_x }} -2.5" z-index="2" size="4 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" text="-" id="pw-admin-chevron"/>
 	<frame pos="0 0" z-index="1" id="pw-admin-body">
 		<quad pos="0 -5" z-index="0" size="{{ width }} {{ body_height }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
 {%- for button in buttons %}
@@ -17,9 +17,9 @@ Void Apply(Boolean _Collapsed) {
 	declare CMlLabel Chevron <=> (Page.GetFirstChild("pw-admin-chevron") as CMlLabel);
 	Body.Visible = !_Collapsed;
 	if (_Collapsed) {
-		Chevron.Value = "▸";
+		Chevron.Value = "+";
 	} else {
-		Chevron.Value = "▾";
+		Chevron.Value = "-";
 	}
 }
 

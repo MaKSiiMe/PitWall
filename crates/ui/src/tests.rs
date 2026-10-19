@@ -273,6 +273,39 @@ fn maps_window_pages_and_search() {
     assert!(xml.contains("Aucune map trouvée"));
 }
 
+/// Characters seen rendering in game (2026-10-19): ASCII, Latin letters and a few symbols.
+/// ✕ ▶ ▾ ▸ showed up as empty boxes, so anything else must be tried in game first.
+fn assert_known_glyphs(xml: &str) {
+    let ok = |c: char| {
+        c.is_ascii() || ('\u{00C0}'..='\u{017F}').contains(&c) || "●○▲▼«»·…—’\u{00A0}".contains(c)
+    };
+    let bad: String = xml.chars().filter(|c| !ok(*c)).collect();
+    assert!(bad.is_empty(), "glyphs not known to render in game: {bad}");
+}
+
+#[test]
+fn pages_only_use_glyphs_the_game_renders() {
+    let renderer = Renderer::default();
+    let i18n = translator();
+    for lang in Lang::ALL {
+        for widget in WidgetId::ALL {
+            assert_known_glyphs(&renderer.view(widget, lang, &i18n).unwrap());
+        }
+        let admin = AdminContext {
+            role: Role::SuperAdmin,
+            formats: vec![],
+            cup_loaded: true,
+        };
+        assert_known_glyphs(&renderer.admin_panel(lang, &i18n, &admin).unwrap());
+        let menu = MenuContext {
+            widgets: vec![(WidgetId::Ranking, true), (WidgetId::Records, false)],
+            all_hidden: true,
+        };
+        assert_known_glyphs(&renderer.menu(lang, &i18n, &menu).unwrap());
+        assert_known_glyphs(&renderer.maps_window(lang, &i18n, &maps_window(40)).unwrap());
+    }
+}
+
 #[test]
 fn hide_page_is_empty() {
     let xml = Renderer::default().hide(WidgetId::Records).unwrap();

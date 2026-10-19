@@ -3,7 +3,7 @@
 	<quad pos="0 0" z-index="0" size="160 118" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}" scriptevents="1"/>
 	<quad pos="0 0" z-index="1" size="160 0.6" bgcolor="{{ theme.accent }}"/>
 	<label pos="3 -4" z-index="2" size="140 5" valign="center2" textfont="GameFontExtraBold" textsize="1.4" textcolor="{{ theme.text }}" text="{{ title }}"/>
-	<label pos="155 -4" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.4" textcolor="{{ theme.text }}" text="✕" action="pw:maps:close" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.bad }}"/>
+	<label pos="155 -4" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.4" textcolor="{{ theme.text }}" text="X" action="pw:maps:close" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.bad }}"/>
 
 {%- for row in rows %}
 	<frame pos="2 {{ row.y }}" z-index="2">
@@ -27,11 +27,11 @@
 
 {%- if pages > 1 %}
 {%- if let Some(action) = prev_action %}
-	<label pos="36 -100" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" text="◂" action="{{ action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	<label pos="36 -100" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" text="«" action="{{ action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 {%- endif %}
 	<label pos="52 -100" z-index="2" size="24 5" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.muted }}" text="{{ page_label }}"/>
 {%- if let Some(action) = next_action %}
-	<label pos="68 -100" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" text="▸" action="{{ action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	<label pos="68 -100" z-index="2" size="6 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" text="»" action="{{ action }}" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 {%- endif %}
 {%- endif %}
 	<label pos="2 -110" z-index="2" size="40 5" valign="center2" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ clear_label }}" scriptevents="1" id="pw-maps-clear" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.bad }}"/>
@@ -39,11 +39,15 @@
 
 	<quad pos="105 -8" z-index="1" size="0.3 106" bgcolor="{{ theme.muted }}" opacity="0.3"/>
 	<label pos="108 -11" z-index="2" size="50 5" valign="center2" textfont="GameFontExtraBold" textsize="1" textcolor="{{ theme.accent }}" text="{{ add_title }}"/>
+	<quad pos="107 -14.5" z-index="1" size="51 6" bgcolor="fff" opacity="0.08"/>
+	<quad pos="107 -20.3" z-index="1" size="51 0.3" bgcolor="{{ theme.accent }}"/>
 	<entry pos="108 -15" z-index="2" size="50 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="" id="pw-tmx-id" scriptevents="1"/>
 	<label pos="108 -23" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ add_label }}" scriptevents="1" id="pw-tmx-add" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 	<label pos="134 -23" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ add_next_label }}" scriptevents="1" id="pw-tmx-next" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 
 	<label pos="108 -33" z-index="2" size="50 5" valign="center2" textfont="GameFontExtraBold" textsize="1" textcolor="{{ theme.accent }}" text="{{ search_title }}"/>
+	<quad pos="107 -36.5" z-index="1" size="51 6" bgcolor="fff" opacity="0.08"/>
+	<quad pos="107 -42.3" z-index="1" size="51 0.3" bgcolor="{{ theme.accent }}"/>
 	<entry pos="108 -37" z-index="2" size="50 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="{{ query }}" id="pw-tmx-q" scriptevents="1"/>
 	<label pos="108 -45" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ search_label }}" scriptevents="1" id="pw-tmx-search" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 {%- for r in results %}
