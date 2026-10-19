@@ -93,17 +93,17 @@ main() {
 			declare Text Action = "";
 			if (Event.Type == CMlScriptEvent::Type::EntrySubmit) {
 				if (Event.ControlId == "pw-tmx-id" && TmxId.Value != "") {
-					Action = "pw:cmd:map tmx " ^ TmxId.Value;
+					Action = "pw:cmd:map add " ^ TmxId.Value;
 				}
 				if (Event.ControlId == "pw-tmx-q" && Query.Value != "") {
 					Action = "pw:cmd:map search " ^ Query.Value;
 				}
 			} else if (Event.Type == CMlScriptEvent::Type::MouseClick) {
 				if (Event.ControlId == "pw-tmx-add" && TmxId.Value != "") {
-					Action = "pw:cmd:map tmx " ^ TmxId.Value;
+					Action = "pw:cmd:map add " ^ TmxId.Value;
 				}
 				if (Event.ControlId == "pw-tmx-next" && TmxId.Value != "") {
-					Action = "pw:cmd:map tmx " ^ TmxId.Value ^ " next";
+					Action = "pw:cmd:map add " ^ TmxId.Value ^ " next";
 				}
 				if (Event.ControlId == "pw-tmx-search" && Query.Value != "") {
 					Action = "pw:cmd:map search " ^ Query.Value;

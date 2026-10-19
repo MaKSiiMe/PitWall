@@ -160,7 +160,7 @@ La fenêtre montre la playlist page par page, avec la map en cours surlignée :
 | > | la jouer maintenant |
 | X | la retirer de la playlist |
 | Vider la playlist | garde seulement la map en cours (deux clics pour confirmer) |
-| Ajouter depuis TMX | colle un id ou une URL Trackmania Exchange, puis Entrée, « Ajouter » ou « Jouer ensuite » |
+| Ajouter | colle un id ou une URL Trackmania Exchange, une URL de campagne trackmania.io (`https://trackmania.io/#/campaigns/<club>/<campagne>`) ou un uid de map, puis Entrée, « Ajouter » ou « Jouer ensuite » |
 | Club Nadeo | id du club + id de la campagne ou du salon, puis « Campagne » ou « Salon » : toutes ses maps sont ajoutées |
 | Recherche TMX | tape un nom, Entrée : les résultats s'affichent avec **+** (ajouter) et **»** (jouer ensuite) |
 
@@ -177,9 +177,10 @@ Les mêmes actions existent en commandes (chat ou console PitWall). Les numéros
 | `/map next <n>` / `/map play <n>` | jouer la map n ensuite / maintenant |
 | `/map remove [n]` | retirer la map n (sans argument : la map en cours) |
 | `/map clear` | ne garder que la map en cours |
+| `/map add <lien ou id> [next]` | reconnaît un id/URL TMX, une URL de campagne trackmania.io ou un uid |
 | `/map tmx <id ou URL> [next]`, `/map search <texte>` | Trackmania Exchange |
 | `/map uid <uid> [next]` | une map Nadeo par son uid |
-| `/map club <club id> <campaign id>` | toutes les maps d'une campagne de club, de n'importe quel club public |
+| `/map club <club id> <campaign id>` ou `/map club <URL trackmania.io>` | toutes les maps d'une campagne de club, de n'importe quel club public |
 | `/map room <club id> <room id>` | toutes les maps d'un salon de club |
 | `/map local [fichier]` | fichiers `.Map.Gbx` du dossier de PitWall (`/data/maps` dans le conteneur) |
 

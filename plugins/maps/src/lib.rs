@@ -15,6 +15,9 @@ use pitwall_core::{
 use pitwall_integrations::nadeo::Nadeo;
 use pitwall_integrations::tmx::{self, Tmx};
 use pitwall_storage::{MapRecord, Storage};
+use source::MapSource;
+
+mod source;
 
 /// Where uploaded maps go, relative to the server's Maps directory.
 const UPLOAD_DIR: &str = "PitWall";
@@ -59,11 +62,9 @@ impl Plugin for MapsPlugin {
     }
 
     fn commands(&self) -> Vec<CommandSpec> {
-        vec![
-            CommandSpec::new("maps", "map", Role::Admin).usage(
-                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|room|local> ...",
-            ),
-        ]
+        vec![CommandSpec::new("maps", "map", Role::Admin).usage(
+            "/map <list|move|next|play|remove|clear|add|tmx|search|uid|club|room|local> ...",
+        )]
     }
 
     fn translations(&self) -> Vec<(Lang, &'static str)> {
@@ -100,6 +101,13 @@ impl Plugin for MapsPlugin {
     }
 }
 
+/// Kind of club map list.
+#[derive(Debug, Clone, Copy)]
+enum ClubList {
+    Campaign,
+    Room,
+}
+
 /// What a command task needs.
 struct Job {
     replier: Replier,
@@ -122,28 +130,35 @@ impl MapsPlugin {
         let usage = || {
             Text::tr("core.usage").arg(
                 "usage",
-                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|room|local> ...",
+                "/map <list|move|next|play|remove|clear|add|tmx|search|uid|club|room|local> ...",
             )
         };
         match inv.arg(0) {
+            Some("add") => {
+                let input = inv
+                    .arg(1)
+                    .ok_or("expected a TMX id or URL, a trackmania.io campaign URL or a map uid")?;
+                let next = inv.arg(2) == Some("next");
+                match source::parse(input) {
+                    Some(MapSource::Tmx(id)) => self.add_tmx(job, id, next).await?,
+                    Some(MapSource::Uid(uid)) => self.add_uid(job, &uid, next).await?,
+                    Some(MapSource::Campaign { club, campaign }) => {
+                        self.add_club(job, ClubList::Campaign, club, campaign)
+                            .await?;
+                    }
+                    None => {
+                        return Err(format!(
+                            "{input}: not a TMX id/URL, a trackmania.io campaign URL or a map uid"
+                        ));
+                    }
+                }
+            }
             Some("tmx") => {
                 let id = inv
                     .arg(1)
                     .and_then(tmx::parse_id)
                     .ok_or("expected a TMX id or URL")?;
-                let next = inv.arg(2) == Some("next");
-                job.replier
-                    .say(Text::tr("maps.downloading").arg("what", format!("TMX #{id}")));
-                let info = self.tmx.map(id).await.map_err(|e| e.to_string())?;
-                let data = self.tmx.download(id).await.map_err(|e| e.to_string())?;
-                let file = format!("{UPLOAD_DIR}/tmx-{id}.Map.Gbx");
-                self.upload(job, &file, data, next, "tmx", &id.to_string())
-                    .await?;
-                job.replier.say(
-                    Text::tr("maps.added")
-                        .arg("name", &info.gbx_map_name)
-                        .arg("file", &file),
-                );
+                self.add_tmx(job, id, inv.arg(2) == Some("next")).await?;
             }
             Some("search") => {
                 let query = inv.rest(1);
@@ -187,38 +202,26 @@ impl MapsPlugin {
                 }
             }
             Some("uid") => {
-                let nadeo = self
-                    .nadeo
-                    .as_ref()
-                    .ok_or_else(|| "Nadeo API not configured".to_owned())?;
                 let uid = inv.arg(1).ok_or("expected a map uid")?;
-                let next = inv.arg(2) == Some("next");
-                job.replier
-                    .say(Text::tr("maps.downloading").arg("what", uid));
-                let maps = nadeo
-                    .maps(&[uid.to_owned()])
-                    .await
-                    .map_err(|e| e.to_string())?;
-                let map = maps.into_iter().next().ok_or("unknown map uid")?;
-                let data = nadeo.download(&map).await.map_err(|e| e.to_string())?;
-                let file = format!("{UPLOAD_DIR}/{}.Map.Gbx", map.map_uid);
-                self.upload(job, &file, data, next, "nadeo", &map.map_uid)
-                    .await?;
-                job.replier.say(
-                    Text::tr("maps.added")
-                        .arg("name", &map.name)
-                        .arg("file", &file),
-                );
+                self.add_uid(job, uid, inv.arg(2) == Some("next")).await?;
             }
             Some(kind @ ("club" | "room")) => {
-                let nadeo = self
-                    .nadeo
-                    .as_ref()
-                    .ok_or_else(|| "Nadeo API not configured".to_owned())?;
-                let (Some(club), Some(id)) = (
-                    inv.arg(1).and_then(|v| v.parse().ok()),
-                    inv.arg(2).and_then(|v| v.parse().ok()),
-                ) else {
+                let list = if kind == "club" {
+                    ClubList::Campaign
+                } else {
+                    ClubList::Room
+                };
+                // A trackmania.io campaign URL works too.
+                let ids = match inv.arg(1).and_then(source::parse) {
+                    Some(MapSource::Campaign { club, campaign }) if kind == "club" => {
+                        Some((club, campaign))
+                    }
+                    _ => inv
+                        .arg(1)
+                        .and_then(|v| v.parse().ok())
+                        .zip(inv.arg(2).and_then(|v| v.parse().ok())),
+                };
+                let Some((club, id)) = ids else {
                     let usage = if kind == "club" {
                         "/map club <club id> <campaign id>"
                     } else {
@@ -227,41 +230,7 @@ impl MapsPlugin {
                     job.replier.say(Text::tr("core.usage").arg("usage", usage));
                     return Ok(());
                 };
-                let list = if kind == "club" {
-                    nadeo.club_campaign(club, id).await
-                } else {
-                    nadeo.club_room(club, id).await
-                }
-                .map_err(|e| e.to_string())?;
-                if list.map_uids.is_empty() {
-                    return Err(format!("{}: no map (room linked to a server?)", list.name));
-                }
-                job.replier.say(
-                    Text::tr("maps.campaign")
-                        .arg("count", list.map_uids.len())
-                        .arg("name", &list.name),
-                );
-                let maps = nadeo
-                    .maps(&list.map_uids)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                for map in maps {
-                    let data = nadeo.download(&map).await.map_err(|e| e.to_string())?;
-                    let file = format!("{UPLOAD_DIR}/{}.Map.Gbx", map.map_uid);
-                    match self
-                        .upload(job, &file, data, false, "nadeo", &map.map_uid)
-                        .await
-                    {
-                        Ok(()) => job.replier.say(
-                            Text::tr("maps.added")
-                                .arg("name", &map.name)
-                                .arg("file", &file),
-                        ),
-                        Err(message) => job
-                            .replier
-                            .say(Text::tr("maps.failed").arg("message", message)),
-                    }
-                }
+                self.add_club(job, list, club, id).await?;
             }
             Some("local") => match inv.arg(1) {
                 None => {
@@ -379,6 +348,92 @@ impl MapsPlugin {
                 job.replier.say(Text::tr("maps.cleared"));
             }
             _ => job.replier.say(usage()),
+        }
+        Ok(())
+    }
+
+    async fn add_tmx(&self, job: &Job, id: i64, next: bool) -> Result<(), String> {
+        job.replier
+            .say(Text::tr("maps.downloading").arg("what", format!("TMX #{id}")));
+        let info = self.tmx.map(id).await.map_err(|e| e.to_string())?;
+        let data = self.tmx.download(id).await.map_err(|e| e.to_string())?;
+        let file = format!("{UPLOAD_DIR}/tmx-{id}.Map.Gbx");
+        self.upload(job, &file, data, next, "tmx", &id.to_string())
+            .await?;
+        job.replier.say(
+            Text::tr("maps.added")
+                .arg("name", &info.gbx_map_name)
+                .arg("file", &file),
+        );
+        Ok(())
+    }
+
+    fn nadeo(&self) -> Result<&Nadeo, String> {
+        self.nadeo
+            .as_deref()
+            .ok_or_else(|| "Nadeo API not configured".to_owned())
+    }
+
+    async fn add_uid(&self, job: &Job, uid: &str, next: bool) -> Result<(), String> {
+        let nadeo = self.nadeo()?;
+        job.replier
+            .say(Text::tr("maps.downloading").arg("what", uid));
+        let maps = nadeo
+            .maps(&[uid.to_owned()])
+            .await
+            .map_err(|e| e.to_string())?;
+        let map = maps.into_iter().next().ok_or("unknown map uid")?;
+        let data = nadeo.download(&map).await.map_err(|e| e.to_string())?;
+        let file = format!("{UPLOAD_DIR}/{}.Map.Gbx", map.map_uid);
+        self.upload(job, &file, data, next, "nadeo", &map.map_uid)
+            .await?;
+        job.replier.say(
+            Text::tr("maps.added")
+                .arg("name", &map.name)
+                .arg("file", &file),
+        );
+        Ok(())
+    }
+
+    /// Every map of a club campaign or room, in order; one failure does not stop the others.
+    async fn add_club(&self, job: &Job, list: ClubList, club: i64, id: i64) -> Result<(), String> {
+        let nadeo = self.nadeo()?;
+        let list = match list {
+            ClubList::Campaign => nadeo.club_campaign(club, id).await,
+            ClubList::Room => nadeo.club_room(club, id).await,
+        }
+        .map_err(|e| e.to_string())?;
+        if list.map_uids.is_empty() {
+            return Err(format!("{}: no map (room linked to a server?)", list.name));
+        }
+        job.replier.say(
+            Text::tr("maps.campaign")
+                .arg("count", list.map_uids.len())
+                .arg("name", &list.name),
+        );
+        let maps = nadeo
+            .maps(&list.map_uids)
+            .await
+            .map_err(|e| e.to_string())?;
+        for map in maps {
+            let file = format!("{UPLOAD_DIR}/{}.Map.Gbx", map.map_uid);
+            let result = match nadeo.download(&map).await {
+                Ok(data) => {
+                    self.upload(job, &file, data, false, "nadeo", &map.map_uid)
+                        .await
+                }
+                Err(err) => Err(err.to_string()),
+            };
+            match result {
+                Ok(()) => job.replier.say(
+                    Text::tr("maps.added")
+                        .arg("name", &map.name)
+                        .arg("file", &file),
+                ),
+                Err(message) => job.replier.say(
+                    Text::tr("maps.failed").arg("message", format!("{}: {message}", map.name)),
+                ),
+            }
         }
         Ok(())
     }

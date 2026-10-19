@@ -16,4 +16,4 @@ campaign = "$0afImporting {count} maps from {name}…"
 no_nadeo = "$f80Nadeo API not configured (PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)."
 
 [maps.cmd]
-map = "Maps: list, move <from> <to>, next <n>, play <n>, remove [n], clear, tmx <id|url> [next], search <name>, uid <uid> [next], club <club> <campaign>, room <club> <room>, local [file]"
+map = "Maps: add <TMX id/URL|trackmania.io URL|uid> [next], list, move <from> <to>, next <n>, play <n>, remove [n], clear, tmx <id|url> [next], search <name>, uid <uid> [next], club <club> <campaign>, room <club> <room>, local [file]"
