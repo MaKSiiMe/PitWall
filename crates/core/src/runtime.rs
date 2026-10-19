@@ -49,6 +49,10 @@ pub struct ServerConfig {
     /// server, `TM_GAME_SETTINGS` of the Docker image). PitWall saves the playlist and the mode
     /// there after each change, so a server restart keeps them. Empty: never saved.
     pub playlist_file: String,
+    /// Local path of the server's Maps directory (shared volume). When set, uploaded maps are
+    /// written there directly; otherwise they go through `WriteFile`, whose request size is
+    /// limited (about 3 MB of map). Empty: `WriteFile`.
+    pub maps_path: String,
 }
 
 impl Default for ServerConfig {
@@ -65,6 +69,7 @@ impl Default for ServerConfig {
             max_reconnect_delay_secs: 30,
             matchsettings_dir: "MatchSettings/PitWall".to_owned(),
             playlist_file: "MatchSettings/default.txt".to_owned(),
+            maps_path: String::new(),
         }
     }
 }
@@ -261,6 +266,7 @@ impl Controller {
             pending: Arc::clone(&pending),
             matchsettings_dir: options.server.matchsettings_dir.clone(),
             playlist_file: options.server.playlist_file.clone(),
+            maps_path: options.server.maps_path.clone(),
         };
         let executor_task = tokio::spawn(executor.run(command_rx, shutdown.clone()));
 
@@ -756,6 +762,7 @@ struct Executor {
     pending: Arc<Mutex<Option<PendingSwitch>>>,
     matchsettings_dir: String,
     playlist_file: String,
+    maps_path: String,
 }
 
 impl Executor {
@@ -889,7 +896,7 @@ impl Executor {
                 data,
                 insert_next,
             } => {
-                client.write_file(&file, data).await?;
+                self.store_map(client, &file, data).await?;
                 if insert_next {
                     ok(client.insert_map(&file).await)
                 } else {
@@ -956,6 +963,47 @@ impl Executor {
             client.chat_send_to(&message, &logins.join(",")).await?;
         }
         Ok(Value::Bool(true))
+    }
+
+    /// Puts a map file in the server's Maps directory: directly on the shared volume when
+    /// `maps_path` is set, else with `WriteFile`.
+    async fn store_map(
+        &self,
+        client: &GbxClient,
+        file: &str,
+        data: Vec<u8>,
+    ) -> Result<(), CommandError> {
+        let relative = std::path::Path::new(file);
+        let safe = relative
+            .components()
+            .all(|c| matches!(c, std::path::Component::Normal(_)));
+        if !safe {
+            return Err(CommandError::Invalid(format!(
+                "invalid map file name: {file}"
+            )));
+        }
+        if self.maps_path.is_empty() {
+            // Base64 grows the data by a third; keep room for the XML around it.
+            let request = data.len().div_ceil(3) * 4 + file.len() + 512;
+            if request > WRITE_FILE_LIMIT {
+                return Err(CommandError::Invalid(format!(
+                    "{file} is too large for WriteFile ({:.1} MB): share the server's Maps \
+                     directory with PitWall and set server.maps_path",
+                    data.len() as f64 / 1_000_000.0
+                )));
+            }
+            return Ok(client.write_file(file, data).await?);
+        }
+        let path = std::path::Path::new(&self.maps_path).join(relative);
+        let error = |source| CommandError::File {
+            path: path.display().to_string(),
+            source,
+        };
+        if let Some(dir) = path.parent() {
+            tokio::fs::create_dir_all(dir).await.map_err(error)?;
+        }
+        tokio::fs::write(&path, data).await.map_err(error)?;
+        Ok(())
     }
 
     /// Applies a new playlist order (see [`playlist::plan`]); the map after the current one in
@@ -1070,6 +1118,9 @@ impl Executor {
         Ok(Value::Bool(true))
     }
 }
+
+/// Largest request the client sends (see `GbxCodec`); bigger `WriteFile` calls would fail.
+const WRITE_FILE_LIMIT: usize = 4 * 1024 * 1024;
 
 /// Saves the playlist and the mode in the server's startup MatchSettings (see
 /// [`ServerConfig::playlist_file`]).

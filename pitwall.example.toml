@@ -16,6 +16,9 @@ matchsettings_dir = "MatchSettings/PitWall"
 # Startup MatchSettings of the server (TM_GAME_SETTINGS in Docker): playlist and mode are
 # saved there after each change so a server restart keeps them. "" = never saved.
 playlist_file = "MatchSettings/default.txt"
+# Server's Maps directory when PitWall can write it (shared volume, e.g. Docker): maps of any
+# size are written there directly. "" = upload with WriteFile (maps up to about 3 MB).
+maps_path = ""
 
 [controller]
 default_lang = "fr"         # fr | en

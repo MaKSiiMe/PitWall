@@ -55,6 +55,8 @@ services:
       PITWALL_SERVER__PORT: "5000"
       PITWALL_SERVER__PASSWORD: ${TM_AUTHORIZATION_SUPERADMIN_PASSWORD:?set TM_AUTHORIZATION_SUPERADMIN_PASSWORD}
       PITWALL_SERVER__PLAYLIST_FILE: MatchSettings/${TM_GAME_SETTINGS:-default.txt}
+      # Maps are written straight into the server's volume (WriteFile is limited to ~3 MB).
+      PITWALL_SERVER__MAPS_PATH: /tm-userdata/Maps
       PITWALL_CONTROLLER__DEFAULT_LANG: ${PITWALL_DEFAULT_LANG:-fr}
       PITWALL_CONTROLLER__DATA_DIR: /data
       PITWALL_CONTROLLER__MAPS_DIR: /data/maps
@@ -77,6 +79,7 @@ services:
       - "${PITWALL_WEB_BIND:-127.0.0.1}:8080:8080"
     volumes:
       - pitwall-data:/data
+      - tm-userdata:/tm-userdata
 
 volumes:
   tm-userdata:

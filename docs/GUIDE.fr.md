@@ -188,7 +188,10 @@ stack). Les ids de club, de campagne et de salon se lisent sur trackmania.io. Un
 membres de son club est refusé (le compte serveur n'en est pas membre), et un salon relié à un
 serveur dédié ne liste pas ses maps.
 
-Les maps téléchargées vont dans `UserData/Maps/PitWall/` sur le serveur. Pour une cup, chaque
+Les maps téléchargées vont dans `UserData/Maps/PitWall/` sur le serveur. Dans la stack,
+PitWall les écrit directement dans le volume du serveur (`PITWALL_SERVER__MAPS_PATH`), quelle que
+soit leur taille. Sans ce volume partagé (PitWall lancé sur ton PC), elles passent par
+`WriteFile`, limité à environ 3 Mo par map : les plus grosses sont refusées avec un message. Pour une cup, chaque
 phase peut avoir sa propre liste (`maps = ["PitWall/tmx-123.Map.Gbx", …]` dans le `.toml` de
 la cup), chargée au début de la phase.
 

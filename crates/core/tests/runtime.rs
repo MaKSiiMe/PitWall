@@ -85,6 +85,10 @@ struct Running {
 }
 
 async fn start(server: &MockServer, roles: RolesConfig) -> Running {
+    start_with(server, roles, ServerConfig::default()).await
+}
+
+async fn start_with(server: &MockServer, roles: RolesConfig, base: ServerConfig) -> Running {
     let addr = server.addr();
     let (host, port) = addr.rsplit_once(':').unwrap();
     let options = ControllerOptions {
@@ -93,7 +97,7 @@ async fn start(server: &MockServer, roles: RolesConfig) -> Running {
             port: port.parse().unwrap(),
             password: "secret".to_owned(),
             reconnect_delay_secs: 1,
-            ..ServerConfig::default()
+            ..base
         },
         default_lang: Lang::En,
         ..ControllerOptions::default()
@@ -490,5 +494,74 @@ async fn set_playlist_reorders_keeps_the_current_map_flowing_and_saves() {
         assert!(err.is_err());
     }
     assert_eq!(maps.lock().unwrap().maps, order);
+    running.shutdown.cancel();
+}
+
+#[tokio::test]
+async fn maps_go_to_the_shared_directory_whatever_their_size() {
+    let (server, playlist) = playlist_mock().await;
+    let dir = std::env::temp_dir().join(format!("pitwall-maps-path-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let running = start_with(
+        &server,
+        RolesConfig::default(),
+        ServerConfig {
+            maps_path: dir.display().to_string(),
+            ..ServerConfig::default()
+        },
+    )
+    .await;
+    let big = vec![b'G'; 6 * 1024 * 1024];
+    running
+        .handles
+        .commands(Actor::Console)
+        .call(Command::UploadMap {
+            file: "PitWall/big.Map.Gbx".to_owned(),
+            data: big.clone(),
+            insert_next: false,
+        })
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(dir.join("PitWall/big.Map.Gbx")).unwrap(), big);
+    assert!(!server.method_names().contains(&"WriteFile".to_owned()));
+    assert!(
+        playlist
+            .lock()
+            .unwrap()
+            .maps
+            .contains(&"PitWall/big.Map.Gbx".to_owned())
+    );
+
+    let err = running
+        .handles
+        .commands(Actor::Console)
+        .call(Command::UploadMap {
+            file: "../escape.Map.Gbx".to_owned(),
+            data: vec![b'G'],
+            insert_next: false,
+        })
+        .await;
+    assert!(err.is_err());
+    assert!(!dir.join("../escape.Map.Gbx").exists());
+    running.shutdown.cancel();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn write_file_refuses_maps_too_large_with_a_clear_error() {
+    let (server, _) = playlist_mock().await;
+    let running = start(&server, RolesConfig::default()).await;
+    let err = running
+        .handles
+        .commands(Actor::Console)
+        .call(Command::UploadMap {
+            file: "PitWall/big.Map.Gbx".to_owned(),
+            data: vec![b'G'; 4 * 1024 * 1024],
+            insert_next: false,
+        })
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("maps_path"), "{err}");
+    assert!(!server.method_names().contains(&"WriteFile".to_owned()));
     running.shutdown.cancel();
 }

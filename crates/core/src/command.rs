@@ -218,6 +218,11 @@ pub enum CommandError {
     Gbx(#[from] GbxError),
     #[error("{0}")]
     Invalid(String),
+    #[error("cannot write {path}: {source}")]
+    File {
+        path: String,
+        source: std::io::Error,
+    },
     #[error("the runtime is shut down")]
     Closed,
 }
