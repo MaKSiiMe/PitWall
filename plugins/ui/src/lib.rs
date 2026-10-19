@@ -18,7 +18,9 @@ use pitwall_core::{
 };
 use pitwall_formats::FormatRegistry;
 use pitwall_formats::cup::{CupSnapshot, CupStatus};
-use pitwall_ui::model::{CupInfoData, RankingData, RankingRow, RecordRow, RecordsData};
+use pitwall_ui::model::{
+    CupInfoData, RankingData, RankingRow, RecordRow, RecordsData, ScoreboardData, ScoreboardRow,
+};
 use pitwall_ui::render::{AdminContext, MapEntry, MapsWindow, MenuContext, TmxEntry};
 use pitwall_ui::{Layout, Renderer, Theme, WidgetId};
 use serde::{Deserialize, Serialize};
@@ -33,6 +35,8 @@ pub type SharedFormats = Arc<RwLock<FormatRegistry>>;
 struct UiConfig {
     theme: Theme,
     layout: Layout,
+    /// Keep Nadeo's scores table instead of PitWall's (Tab).
+    native_scoreboard: bool,
 }
 
 /// Per-player display preferences.
@@ -83,6 +87,7 @@ impl Plugin for UiPlugin {
                 .unwrap_or_default();
             let (playlist_tx, mut playlist_rx) = mpsc::unbounded_channel();
             let mut ui = Ui {
+                scoreboard: !config.native_scoreboard,
                 renderer: Renderer::new(config.theme, config.layout),
                 formats: self.formats,
                 prefs_file,
@@ -136,6 +141,8 @@ struct Sent {
 }
 
 struct Ui {
+    /// PitWall's scores table replaces Nadeo's.
+    scoreboard: bool,
     renderer: Renderer,
     formats: SharedFormats,
     prefs_file: PathBuf,
@@ -199,10 +206,11 @@ impl Ui {
 
     /// Widgets sent to a player. Hidden ones are sent too: hiding happens on the client, from
     /// the menu, so that it is instant.
-    fn wanted(role: Role) -> BTreeSet<WidgetId> {
+    fn wanted(&self, role: Role) -> BTreeSet<WidgetId> {
         WidgetId::ALL
             .into_iter()
             .filter(|w| *w != WidgetId::AdminPanel || role >= Role::Referee)
+            .filter(|w| *w != WidgetId::Scoreboard || self.scoreboard)
             .collect()
     }
 
@@ -254,7 +262,7 @@ impl Ui {
             return;
         };
         let (lang, role) = (player.lang, ctx.roles.get(login));
-        let wanted = Self::wanted(role);
+        let wanted = self.wanted(role);
         let previous = self
             .sent
             .get(login)
@@ -340,6 +348,153 @@ impl Ui {
             })
             .unwrap_or_default();
         data
+    }
+
+    /// Hides Nadeo's scores table: PitWall's takes the Tab key (`Common.UIModules`, TM2020 3.2+).
+    fn hide_native_scoreboard(&self, ctx: &PluginContext) {
+        if !self.scoreboard {
+            return;
+        }
+        let json = serde_json::json!({ "uimodules": [
+            { "id": "Race_ScoresTable", "visible": false, "visible_update": true }
+        ]});
+        ctx.commands.send(Command::Raw {
+            method: "TriggerModeScriptEventArray".into(),
+            params: vec![
+                Value::from("Common.UIModules.SetProperties"),
+                Value::Array(vec![Value::from(json.to_string())]),
+            ],
+        });
+    }
+
+    /// Scores table: every connected player, ranked like the live ranking.
+    fn scoreboard_data(&self, ctx: &PluginContext, lang: Lang) -> ScoreboardData {
+        let t = |key: &str| ctx.i18n.t(lang, key);
+        let header = self.ranking(ctx, lang);
+        let cup_name = self
+            .cup
+            .as_ref()
+            .map(|c| {
+                let name = c.name.get(lang);
+                if name.is_empty() {
+                    c.id.clone()
+                } else {
+                    name.to_owned()
+                }
+            })
+            .filter(|n| !n.is_empty());
+        let mut parts = Vec::new();
+        let title = match cup_name {
+            Some(cup) => {
+                parts.push(header.title.clone());
+                cup.to_uppercase()
+            }
+            None => header.title.clone(),
+        };
+        parts.push(header.subtitle.clone());
+        if let Some(map) = ctx.state.read(|s| s.map.clone()) {
+            let author = if map.author_nickname.is_empty() {
+                &map.author
+            } else {
+                &map.author_nickname
+            };
+            parts.push(
+                ctx.i18n.render(
+                    lang,
+                    &Text::tr("ui.sb_map")
+                        .arg("name", &map.name)
+                        .arg("author", author),
+                ),
+            );
+        }
+        let connected = ctx.state.read(|s| s.players.len());
+        parts.push(
+            ctx.i18n
+                .render(lang, &Text::tr("ui.sb_players").arg("count", connected)),
+        );
+        let subtitle = parts
+            .into_iter()
+            .filter(|p| !p.is_empty())
+            .collect::<Vec<_>>()
+            .join("  ·  ");
+
+        let time_mode = Self::is_time_mode(ctx);
+        let mut rows: Vec<ScoreboardRow> = Vec::new();
+        if time_mode {
+            for row in &header.rows {
+                rows.push(ScoreboardRow {
+                    login: row.login.clone(),
+                    name: row.name.clone(),
+                    rank: row.rank,
+                    info: format_time(row.time),
+                    delta: if row.gap > 0 {
+                        format_gap(row.gap)
+                    } else {
+                        String::new()
+                    },
+                    total: String::new(),
+                });
+            }
+        } else if let Some(scores) = &self.scores {
+            let use_match = scores.players.iter().any(|p| p.matchpoints != 0);
+            let mut players: Vec<_> = scores.players.iter().collect();
+            players.sort_by_key(|p| (p.rank <= 0, p.rank));
+            for (i, p) in players.iter().enumerate() {
+                rows.push(ScoreboardRow {
+                    login: p.login.clone(),
+                    name: Self::name_of(ctx, &p.login, &p.name),
+                    rank: i32::try_from(i + 1).unwrap_or(i32::MAX),
+                    info: format_time(p.bestracetime),
+                    delta: if p.roundpoints > 0 {
+                        format!("+{}", p.roundpoints)
+                    } else {
+                        String::new()
+                    },
+                    total: if use_match {
+                        p.matchpoints
+                    } else {
+                        p.mappoints
+                    }
+                    .to_string(),
+                });
+            }
+        }
+        // Connected players without a result yet, after the others.
+        let listed: BTreeSet<String> = rows.iter().map(|r| r.login.clone()).collect();
+        let waiting: Vec<(String, String)> = ctx.state.read(|s| {
+            s.players
+                .values()
+                .filter(|p| !listed.contains(&p.login))
+                .map(|p| (p.login.clone(), p.nickname.clone()))
+                .collect()
+        });
+        for (login, nickname) in waiting {
+            rows.push(ScoreboardRow {
+                name: if nickname.is_empty() {
+                    login.clone()
+                } else {
+                    nickname
+                },
+                login,
+                rank: 0,
+                info: String::new(),
+                delta: String::new(),
+                total: String::new(),
+            });
+        }
+        let (col_info, col_delta, col_total) = if time_mode {
+            (t("ui.sb_time"), t("ui.sb_gap"), String::new())
+        } else {
+            (t("ui.sb_time"), t("ui.sb_round"), t("ui.sb_points"))
+        };
+        ScoreboardData {
+            title,
+            subtitle,
+            col_info,
+            col_delta,
+            col_total,
+            rows,
+        }
     }
 
     /// Phase of the running cup, else the name of the current mode.
@@ -539,6 +694,10 @@ impl Ui {
                 widget,
                 &self.cup_info(ctx, lang.unwrap_or(ctx.default_lang)),
             ),
+            WidgetId::Scoreboard => self.renderer.data(
+                widget,
+                &self.scoreboard_data(ctx, lang.unwrap_or(ctx.default_lang)),
+            ),
             WidgetId::AdminPanel | WidgetId::Menu => return None,
         };
         match result {
@@ -568,12 +727,14 @@ impl Ui {
                 continue;
             }
             // Widgets with localized data get one layer per language.
-            let langs: Vec<Option<Lang>> =
-                if matches!(widget, WidgetId::CupInfo | WidgetId::Ranking) {
-                    Lang::ALL.into_iter().map(Some).collect()
-                } else {
-                    vec![None]
-                };
+            let langs: Vec<Option<Lang>> = if matches!(
+                widget,
+                WidgetId::CupInfo | WidgetId::Ranking | WidgetId::Scoreboard
+            ) {
+                Lang::ALL.into_iter().map(Some).collect()
+            } else {
+                vec![None]
+            };
             for lang in langs {
                 let logins: Vec<String> = self
                     .sent
@@ -597,12 +758,17 @@ impl Ui {
 
     fn mark(&mut self, widgets: &[WidgetId]) {
         self.dirty.extend(widgets.iter().copied());
+        // The scores table shows the same ranking, in full.
+        if widgets.contains(&WidgetId::Ranking) {
+            self.dirty.insert(WidgetId::Scoreboard);
+        }
     }
 
     fn on_event(&mut self, ctx: &PluginContext, event: Event) {
         match event {
             Event::Connected { .. } => {
                 self.fetch_playlist(ctx);
+                self.hide_native_scoreboard(ctx);
                 self.sent.clear();
                 self.last_data.clear();
                 for login in ctx
@@ -612,8 +778,12 @@ impl Ui {
                     self.send_views(ctx, &login);
                 }
             }
-            Event::PlayerJoined { player } => self.send_views(ctx, &player.login),
+            Event::PlayerJoined { player } => {
+                self.send_views(ctx, &player.login);
+                self.mark(&[WidgetId::Scoreboard]);
+            }
             Event::PlayerLeft { player, .. } => {
+                self.mark(&[WidgetId::Scoreboard]);
                 self.sent.remove(&player.login);
                 self.maps.open.remove(&player.login);
                 self.maps.searches.remove(&player.login);
@@ -661,6 +831,7 @@ impl Ui {
             }
             Event::MapStart { .. } => {
                 self.fetch_playlist(ctx);
+                self.hide_native_scoreboard(ctx);
                 self.best.clear();
                 self.finished.clear();
                 self.records = None;
@@ -802,7 +973,7 @@ impl Ui {
             self.set_prefs(login, |p| p.all_hidden = hidden);
         } else if let Some(rest) = action.strip_prefix("pw:ui:set:")
             && let Some((key, state)) = rest.rsplit_once(':')
-            && let Some(widget) = WidgetId::parse(key).filter(|w| *w != WidgetId::Menu)
+            && let Some(widget) = WidgetId::parse(key).filter(|w| w.hideable())
         {
             let hidden = state == "1";
             self.set_prefs(login, |p| {
@@ -830,7 +1001,7 @@ impl Ui {
             self.send_menu(ctx, &login);
             return;
         }
-        let Some(widget) = WidgetId::parse(target).filter(|w| *w != WidgetId::Menu) else {
+        let Some(widget) = WidgetId::parse(target).filter(|w| w.hideable()) else {
             ctx.reply(
                 inv,
                 Text::tr("core.usage").arg(
@@ -960,5 +1131,37 @@ impl Ui {
             Ok(xml) => Self::send(ctx, vec![login.to_owned()], xml),
             Err(err) => tracing::error!(%err, "cannot render the map window"),
         }
+    }
+}
+
+/// `1:02.345`, `1:02:03.456` past an hour; empty without a time.
+fn format_time(ms: i32) -> String {
+    if ms <= 0 {
+        return String::new();
+    }
+    let (h, m, sec, milli) = (ms / 3_600_000, ms / 60_000 % 60, ms / 1000 % 60, ms % 1000);
+    if h > 0 {
+        format!("{h}:{m:02}:{sec:02}.{milli:03}")
+    } else {
+        format!("{m}:{sec:02}.{milli:03}")
+    }
+}
+
+/// `+1.234`.
+fn format_gap(ms: i32) -> String {
+    format!("+{}.{:03}", ms / 1000, ms % 1000)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn times() {
+        assert_eq!(format_time(35_708), "0:35.708");
+        assert_eq!(format_time(1_837_008), "30:37.008");
+        assert_eq!(format_time(3_723_456), "1:02:03.456");
+        assert_eq!(format_time(-1), "");
+        assert_eq!(format_gap(1_234), "+1.234");
     }
 }

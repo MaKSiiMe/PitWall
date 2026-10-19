@@ -16,15 +16,18 @@ pub enum WidgetId {
     AdminPanel,
     /// Toggles to show/hide the other widgets.
     Menu,
+    /// Full ranking on the scores table layer (Tab, end of map), replacing Nadeo's.
+    Scoreboard,
 }
 
 impl WidgetId {
-    pub const ALL: [WidgetId; 5] = [
+    pub const ALL: [WidgetId; 6] = [
         WidgetId::Ranking,
         WidgetId::CupInfo,
         WidgetId::Records,
         WidgetId::AdminPanel,
         WidgetId::Menu,
+        WidgetId::Scoreboard,
     ];
 
     /// Widgets players can hide from the menu.
@@ -42,6 +45,7 @@ impl WidgetId {
             WidgetId::Records => "records",
             WidgetId::AdminPanel => "admin_panel",
             WidgetId::Menu => "menu",
+            WidgetId::Scoreboard => "scoreboard",
         }
     }
 
@@ -71,12 +75,18 @@ impl WidgetId {
             WidgetId::Records => "Records",
             WidgetId::AdminPanel => "AdminPanel",
             WidgetId::Menu => "Menu",
+            WidgetId::Scoreboard => "Scoreboard",
         }
     }
 
     /// `LocalUser` variable that hides this widget on the client (set by the menu).
     pub fn hidden_var(self) -> String {
         format!("{}_Hidden", self.var_prefix())
+    }
+
+    /// Hidden from the menu's flags (the scores table is shown by the game on Tab).
+    pub fn hideable(self) -> bool {
+        WidgetId::HIDEABLE.contains(&self)
     }
 
     /// Has a data layer (the admin panel and the menu are static views).

@@ -199,6 +199,37 @@ struct MenuTemplate {
     toggles: Vec<Toggle>,
 }
 
+/// Visible lines of the scores table (one more slot pins the local player).
+pub const SCOREBOARD_ROWS: usize = 16;
+
+struct ScoreboardLine {
+    index: usize,
+    y: String,
+    /// The pinned slot of the local player.
+    own: bool,
+    stripe: &'static str,
+}
+
+#[derive(Template)]
+#[template(path = "scoreboard.xml")]
+struct ScoreboardTemplate {
+    id: String,
+    prefix: String,
+    theme: Theme,
+    height: String,
+    col_name: String,
+    rows: Vec<ScoreboardLine>,
+    row_inner: String,
+    row_half: String,
+    max_rows: usize,
+    gold_vec3: String,
+    silver_vec3: String,
+    bronze_vec3: String,
+    badge_vec3: String,
+    dark_vec3: String,
+    text_vec3: String,
+}
+
 /// Manialink id of the map manager window.
 pub const MAPS_WINDOW_ID: &str = "PitWall_Maps";
 /// Playlist rows per page of the map manager.
@@ -308,6 +339,9 @@ pub struct Renderer {
 }
 
 const ROW_HEIGHT: f32 = 4.4;
+/// Rank badge below the podium, and rank text on a podium badge.
+const BADGE_VEC3: &str = "<0.180, 0.180, 0.200>";
+const DARK_VEC3: &str = "<0.070, 0.070, 0.080>";
 const WIDGET_WIDTH: f32 = 44.0;
 
 impl Renderer {
@@ -398,8 +432,8 @@ impl Renderer {
                 gold_vec3: Theme::vec3(&self.theme.gold),
                 silver_vec3: Theme::vec3(&self.theme.silver),
                 bronze_vec3: Theme::vec3(&self.theme.bronze),
-                badge_vec3: "<0.180, 0.180, 0.200>".to_owned(),
-                dark_vec3: "<0.070, 0.070, 0.080>".to_owned(),
+                badge_vec3: BADGE_VEC3.to_owned(),
+                dark_vec3: DARK_VEC3.to_owned(),
             }
             .render()?,
             WidgetId::Records => RecordsTemplate {
@@ -437,6 +471,43 @@ impl Renderer {
                     ready_count_label: ms_string(&t("ui.ready_count")),
                     good_vec3: Theme::vec3(&self.theme.good),
                     accent_vec3: Theme::vec3(&self.theme.accent),
+                }
+                .render()?
+            }
+            WidgetId::Scoreboard => {
+                const ROW: f32 = 5.2;
+                const TOP: f32 = 27.0;
+                let mut rows: Vec<ScoreboardLine> = (0..SCOREBOARD_ROWS)
+                    .map(|i| ScoreboardLine {
+                        index: i,
+                        y: real(-TOP - ROW * i as f32),
+                        own: false,
+                        stripe: if i % 2 == 0 { "0.03" } else { "0.06" },
+                    })
+                    .collect();
+                let own_y = TOP + ROW * SCOREBOARD_ROWS as f32 + 2.0;
+                rows.push(ScoreboardLine {
+                    index: SCOREBOARD_ROWS,
+                    y: real(-own_y),
+                    own: true,
+                    stripe: "0.06",
+                });
+                ScoreboardTemplate {
+                    id: c.id,
+                    prefix: c.prefix,
+                    theme: c.theme,
+                    height: real(own_y + ROW + 2.0),
+                    col_name: t("ui.sb_player"),
+                    rows,
+                    row_inner: real(ROW - 0.6),
+                    row_half: real((ROW - 0.6) / 2.0),
+                    max_rows: SCOREBOARD_ROWS,
+                    gold_vec3: Theme::vec3(&self.theme.gold),
+                    silver_vec3: Theme::vec3(&self.theme.silver),
+                    bronze_vec3: Theme::vec3(&self.theme.bronze),
+                    badge_vec3: BADGE_VEC3.to_owned(),
+                    dark_vec3: DARK_VEC3.to_owned(),
+                    text_vec3: Theme::vec3(&self.theme.text),
                 }
                 .render()?
             }

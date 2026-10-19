@@ -73,7 +73,7 @@ fn every_view_renders_in_both_languages() {
             if widget.has_data() {
                 assert!(script.contains(&format!("{}_Serial for LocalUser", widget.var_prefix())));
             }
-            if widget != WidgetId::Menu {
+            if widget.hideable() {
                 // Every widget hides itself from the menu's LocalUser flags.
                 assert!(script.contains(&format!(
                     "declare Boolean {} for LocalUser",
@@ -99,6 +99,20 @@ fn ranking_has_a_header_podium_and_pinned_own_line() {
     assert!(script.contains(&crate::Theme::vec3(&crate::Theme::default().gold)));
     // The local player's line is pinned below the visible rows.
     assert!(xml.contains(r#"id="own""#) && script.contains("Pinned = Own >= C_MaxRows"));
+}
+
+#[test]
+fn scoreboard_takes_the_scores_table_layer() {
+    let renderer = Renderer::default();
+    let xml = renderer
+        .view(WidgetId::Scoreboard, Lang::En, &translator())
+        .unwrap();
+    check_script(&check_xml(&xml));
+    assert!(xml.contains(r#"layer="ScoresTable""#));
+    // 16 visible lines and the pinned slot of the local player.
+    assert!(xml.contains(r#"id="sb-row-15""#) && xml.contains(r#"id="sb-row-16""#));
+    assert!(!xml.contains(r#"id="sb-row-17""#));
+    assert!(xml.contains("Own >= C_MaxRows"));
 }
 
 #[test]

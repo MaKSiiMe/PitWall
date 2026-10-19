@@ -136,6 +136,21 @@ async fn map_window_follows_the_playlist() {
     })
     .await;
 
+    // PitWall's scores table replaces Nadeo's, with every connected player.
+    assert!(server.calls().iter().any(|c| {
+        c.method == "TriggerModeScriptEventArray"
+            && c.params[0] == Value::from("Common.UIModules.SetProperties")
+            && format!("{:?}", c.params[1]).contains("Race_ScoresTable")
+    }));
+    wait_until("scoreboard data", || {
+        pages_for(&server, "bob").iter().any(|p| {
+            p.contains("PitWall_Scoreboard_Data")
+                && p.contains("2 JOUEURS")
+                && p.contains("MAP 2/3")
+        })
+    })
+    .await;
+
     // The admin opens the window: the playlist, in French.
     handles.invoke(
         Actor::Player("boss".into()),

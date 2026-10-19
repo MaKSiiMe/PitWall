@@ -58,3 +58,26 @@ pub struct RecordRow {
 pub struct RecordsData {
     pub rows: Vec<RecordRow>,
 }
+
+/// One line of the scores table. Values are preformatted (times, "+12").
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ScoreboardRow {
+    pub login: String,
+    pub name: String,
+    /// 0 = not ranked yet.
+    pub rank: i32,
+    pub info: String,
+    pub delta: String,
+    pub total: String,
+}
+
+/// Scores table (Tab): localized header and columns, every player.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ScoreboardData {
+    pub title: String,
+    pub subtitle: String,
+    pub col_info: String,
+    pub col_delta: String,
+    pub col_total: String,
+    pub rows: Vec<ScoreboardRow>,
+}

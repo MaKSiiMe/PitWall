@@ -225,3 +225,6 @@ testés sans serveur réel :
 8. **Sauvegarde de la playlist** : `SaveMatchSettings` écrit-il aussi le mode et ses réglages
    `S_*` ? Test : réordonner, passer en `/mode cup`, redémarrer le conteneur `trackmania`, puis
    vérifier l'ordre et le mode.
+9. **Tableau Tab de PitWall** (calque `ScoresTable`) : il remplace celui de Nadeo, masqué par
+   `Common.UIModules.SetProperties` (`Race_ScoresTable`). Pour garder celui de Nadeo :
+   `[plugins.ui] native_scoreboard = true`.

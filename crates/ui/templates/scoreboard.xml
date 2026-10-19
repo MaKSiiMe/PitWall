@@ -1,0 +1,120 @@
+<manialink id="{{ id }}" version="3" name="PitWall:Scoreboard" layer="ScoresTable">
+<frame pos="-100 76" z-index="20">
+	<quad pos="0 0" z-index="0" size="200 {{ height }}" bgcolor="{{ theme.background }}" opacity="0.94"/>
+	<quad pos="0 0" z-index="1" size="200 0.8" bgcolor="{{ theme.accent }}"/>
+	<quad pos="0 0" z-index="1" size="1.2 22" bgcolor="{{ theme.accent }}"/>
+	<label pos="6 -8" z-index="2" size="186 9" valign="center2" textfont="GameFontExtraBold" textsize="5" textcolor="{{ theme.text }}" text="" id="sb-title"/>
+	<label pos="6.3 -15.5" z-index="2" size="186 4" valign="center2" textfont="GameFontSemiBold" textsize="1.3" textcolor="{{ theme.muted }}" text="" id="sb-subtitle"/>
+	<quad pos="6 -20" z-index="1" size="188 0.3" bgcolor="{{ theme.muted }}" opacity="0.4"/>
+
+	<label pos="15 -23.5" z-index="2" size="100 4" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" text="{{ col_name }}"/>
+	<label pos="145 -23.5" z-index="2" size="30 4" halign="right" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" text="" id="sb-col-info"/>
+	<label pos="170 -23.5" z-index="2" size="22 4" halign="right" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" text="" id="sb-col-delta"/>
+	<label pos="193 -23.5" z-index="2" size="20 4" halign="right" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" text="" id="sb-col-total"/>
+
+{%- for row in rows %}
+	<frame pos="6 {{ row.y }}" z-index="2" id="sb-row-{{ row.index }}" hidden="1">
+{%- if row.own %}
+		<label pos="94 0.9" z-index="3" size="188 1.6" halign="center" valign="center2" textsize="0.6" textcolor="{{ theme.muted }}" text="· · ·"/>
+{%- endif %}
+		<quad pos="0 0" z-index="0" size="188 {{ row_inner }}" bgcolor="fff" opacity="{{ row.stripe }}"/>
+		<quad pos="0 0" z-index="1" size="188 {{ row_inner }}" bgcolor="{{ theme.accent }}" opacity="0.3" id="sb-row-{{ row.index }}-hl" hidden="1"/>
+		<quad pos="0 0" z-index="2" size="7 {{ row_inner }}" bgcolor="2e2e33" id="sb-row-{{ row.index }}-badge"/>
+		<label pos="3.5 -{{ row_half }}" z-index="3" size="7 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-rank"/>
+		<label pos="9 -{{ row_half }}" z-index="3" size="100 {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.4" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-name"/>
+		<label pos="139 -{{ row_half }}" z-index="3" size="30 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.3" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-info"/>
+		<label pos="164 -{{ row_half }}" z-index="3" size="22 {{ row_inner }}" halign="right" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.good }}" id="sb-row-{{ row.index }}-delta"/>
+		<label pos="187 -{{ row_half }}" z-index="3" size="20 {{ row_inner }}" halign="right" valign="center2" textfont="GameFontExtraBold" textsize="1.4" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-total"/>
+	</frame>
+{%- endfor %}
+</frame>
+<script><!--
+#Include "TextLib" as TL
+
+#Const C_MaxRows {{ max_rows }}
+
+#Struct K_Row {
+	Text login;
+	Text name;
+	Integer rank;
+	Text info;
+	Text delta;
+	Text total;
+}
+
+#Struct K_Data {
+	Text title;
+	Text subtitle;
+	Text col_info;
+	Text col_delta;
+	Text col_total;
+	K_Row[] rows;
+}
+
+Void Paint(Integer _Slot, K_Row _Row) {
+	declare CMlFrame Frame <=> (Page.GetFirstChild("sb-row-"^_Slot) as CMlFrame);
+	declare CMlQuad Badge <=> (Page.GetFirstChild("sb-row-"^_Slot^"-badge") as CMlQuad);
+	declare CMlLabel Rank <=> (Page.GetFirstChild("sb-row-"^_Slot^"-rank") as CMlLabel);
+	declare CMlQuad Highlight <=> (Page.GetFirstChild("sb-row-"^_Slot^"-hl") as CMlQuad);
+	(Page.GetFirstChild("sb-row-"^_Slot^"-name") as CMlLabel).Value = _Row.name;
+	(Page.GetFirstChild("sb-row-"^_Slot^"-info") as CMlLabel).Value = _Row.info;
+	(Page.GetFirstChild("sb-row-"^_Slot^"-delta") as CMlLabel).Value = _Row.delta;
+	(Page.GetFirstChild("sb-row-"^_Slot^"-total") as CMlLabel).Value = _Row.total;
+	if (_Row.rank == 1) {
+		Badge.BgColor = {{ gold_vec3|safe }};
+	} else if (_Row.rank == 2) {
+		Badge.BgColor = {{ silver_vec3|safe }};
+	} else if (_Row.rank == 3) {
+		Badge.BgColor = {{ bronze_vec3|safe }};
+	} else {
+		Badge.BgColor = {{ badge_vec3|safe }};
+	}
+	if (_Row.rank >= 1 && _Row.rank <= 3) {
+		Rank.TextColor = {{ dark_vec3|safe }};
+	} else {
+		Rank.TextColor = {{ text_vec3|safe }};
+	}
+	if (_Row.rank > 0) {
+		Rank.Value = TL::ToText(_Row.rank);
+	} else {
+		Rank.Value = "-";
+	}
+	Highlight.Visible = _Row.login == LocalUser.Login;
+	Frame.Visible = True;
+}
+
+Void Update(K_Data _Data) {
+	(Page.GetFirstChild("sb-title") as CMlLabel).Value = _Data.title;
+	(Page.GetFirstChild("sb-subtitle") as CMlLabel).Value = _Data.subtitle;
+	(Page.GetFirstChild("sb-col-info") as CMlLabel).Value = _Data.col_info;
+	(Page.GetFirstChild("sb-col-delta") as CMlLabel).Value = _Data.col_delta;
+	(Page.GetFirstChild("sb-col-total") as CMlLabel).Value = _Data.col_total;
+	declare Integer Own = -1;
+	foreach (Index => Row in _Data.rows) {
+		if (Row.login == LocalUser.Login) Own = Index;
+	}
+	for (Slot, 0, C_MaxRows) {
+		(Page.GetFirstChild("sb-row-"^Slot) as CMlFrame).Visible = False;
+	}
+	for (Slot, 0, C_MaxRows - 1) {
+		if (Slot < _Data.rows.count) Paint(Slot, _Data.rows[Slot]);
+	}
+	// Slot C_MaxRows is the local player's line when they are below the visible rows.
+	if (Own >= C_MaxRows) Paint(C_MaxRows, _Data.rows[Own]);
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Integer LastSerial = -1;
+	while (True) {
+		yield;
+		if (LastSerial != {{ prefix }}_Serial) {
+			LastSerial = {{ prefix }}_Serial;
+			declare K_Data Data;
+			if (Data.fromjson({{ prefix }}_Json)) Update(Data);
+		}
+	}
+}
+--></script>
+</manialink>
