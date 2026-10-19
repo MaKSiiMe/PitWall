@@ -86,6 +86,22 @@ fn every_view_renders_in_both_languages() {
 }
 
 #[test]
+fn ranking_has_a_header_podium_and_pinned_own_line() {
+    let renderer = Renderer::default();
+    let xml = renderer
+        .view(WidgetId::Ranking, Lang::Fr, &translator())
+        .unwrap();
+    let script = check_xml(&xml);
+    // Header filled from the data, default title before it arrives.
+    assert!(xml.contains(r#"id="pw-title""#) && xml.contains(r#"id="pw-subtitle""#));
+    assert!(script.contains("Title.Value = _Data.title;"));
+    // Podium colors from the theme.
+    assert!(script.contains(&crate::Theme::vec3(&crate::Theme::default().gold)));
+    // The local player's line is pinned below the visible rows.
+    assert!(xml.contains(r#"id="own""#) && script.contains("Pinned = Own >= C_MaxRows"));
+}
+
+#[test]
 fn views_are_localized() {
     let renderer = Renderer::default();
     let i18n = translator();
@@ -100,6 +116,8 @@ fn data_layer_escapes_json() {
     let renderer = Renderer::default();
     let data = RankingData {
         mode: "time".into(),
+        title: "SPEED MAPPING".into(),
+        subtitle: "MAP 1/20".into(),
         cutline: 4,
         rows: vec![RankingRow {
             login: "abc".into(),

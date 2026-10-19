@@ -1,19 +1,32 @@
 <manialink id="{{ id }}" version="3" name="PitWall:Ranking">
 <frame pos="{{ x }} {{ y }}" z-index="10" id="pw-root">
-	<quad pos="0 0" z-index="0" size="{{ width }} 5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
-	<quad pos="0 0" z-index="1" size="0.6 5" bgcolor="{{ theme.accent }}"/>
-	<label pos="2.5 -2.5" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.text }}" text="{{ title }}"/>
-	<frame pos="0 -5.5" z-index="1">
+	<quad pos="0 0" z-index="0" size="{{ width }} 5.5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="1" size="0.6 5.5" bgcolor="{{ theme.accent }}"/>
+	<label pos="2.5 -2.75" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" text="{{ title }}" id="pw-title"/>
+	<label pos="{{ value_x }} -2.75" z-index="2" size="16 5" halign="right" valign="center2" textfont="GameFontExtraBold" textsize="0.9" textcolor="{{ theme.accent }}" text="" id="pw-subtitle"/>
+	<frame pos="0 -6" z-index="1">
 		<quad pos="0 0" z-index="5" size="{{ width }} 0.4" bgcolor="{{ theme.bad }}" id="cutline" hidden="1"/>
 {%- for i in 0..max_rows %}
 		<frame pos="0 0" z-index="1" id="row-{{ i }}" hidden="1">
 			<quad pos="0 0" z-index="0" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
-			<quad pos="0 0" z-index="1" size="0.6 {{ row_inner }}" bgcolor="{{ theme.accent }}" id="row-{{ i }}-hl" hidden="1"/>
-			<label pos="3.2 -{{ row_half }}" z-index="2" size="5 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" id="row-{{ i }}-rank"/>
-			<label pos="6.5 -{{ row_half }}" z-index="2" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-name"/>
-			<label pos="{{ value_x }} -{{ row_half }}" z-index="2" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-value"/>
+			<quad pos="0 0" z-index="1" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.accent }}" opacity="0.3" id="row-{{ i }}-hl" hidden="1"/>
+			<quad pos="0 0" z-index="2" size="5.5 {{ row_inner }}" bgcolor="2e2e33" id="row-{{ i }}-badge"/>
+			<label pos="2.75 -{{ row_half }}" z-index="3" size="5.5 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-rank"/>
+			<label pos="7 -{{ row_half }}" z-index="3" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-name"/>
+			<label pos="{{ value_x }} -{{ row_half }}" z-index="3" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="row-{{ i }}-value"/>
 		</frame>
 {%- endfor %}
+		<frame pos="0 0" z-index="2" id="own" hidden="1">
+			<label pos="{{ half_width }} -0.6" z-index="3" size="{{ width }} 1.2" halign="center" valign="center2" textsize="0.6" textcolor="{{ theme.muted }}" text="· · ·"/>
+			<frame pos="0 -1.2" z-index="1">
+				<quad pos="0 0" z-index="0" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+				<quad pos="0 0" z-index="1" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.accent }}" opacity="0.3"/>
+				<quad pos="0 0" z-index="2" size="5.5 {{ row_inner }}" bgcolor="2e2e33" id="own-badge"/>
+				<label pos="2.75 -{{ row_half }}" z-index="3" size="5.5 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.text }}" id="own-rank"/>
+				<label pos="7 -{{ row_half }}" z-index="3" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.1" textcolor="{{ theme.text }}" id="own-name"/>
+				<label pos="{{ value_x }} -{{ row_half }}" z-index="3" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="own-value"/>
+			</frame>
+		</frame>
 	</frame>
 </frame>
 <script><!--
@@ -36,6 +49,8 @@
 
 #Struct K_Data {
 	Text mode;
+	Text title;
+	Text subtitle;
 	Integer cutline;
 	K_Row[] rows;
 }
@@ -54,10 +69,66 @@ Text FormatGap(Integer _Gap) {
 	return "+"^Seconds^"."^TL::FormatInteger(Millis, 3);
 }
 
+// Podium badges are colored, the others dark.
+Void PaintBadge(CMlQuad _Badge, CMlLabel _RankLabel, Integer _Rank) {
+	if (_Rank == 1) {
+		_Badge.BgColor = {{ gold_vec3|safe }};
+	} else if (_Rank == 2) {
+		_Badge.BgColor = {{ silver_vec3|safe }};
+	} else if (_Rank == 3) {
+		_Badge.BgColor = {{ bronze_vec3|safe }};
+	} else {
+		_Badge.BgColor = {{ badge_vec3|safe }};
+	}
+	if (_Rank >= 1 && _Rank <= 3) {
+		_RankLabel.TextColor = {{ dark_vec3|safe }};
+	} else {
+		_RankLabel.TextColor = {{ text_vec3|safe }};
+	}
+	_RankLabel.Value = TL::ToText(_Rank);
+}
+
+Void PaintValue(CMlLabel _Name, CMlLabel _Value, Text _Mode, K_Row _Row) {
+	_Name.Value = _Row.name;
+	if (_Mode == "points") {
+		_Value.Value = TL::ToText(_Row.points);
+		_Value.TextColor = {{ text_vec3|safe }};
+		if (_Row.finished) {
+			_Name.TextColor = {{ accent_vec3|safe }};
+		} else {
+			_Name.TextColor = {{ text_vec3|safe }};
+		}
+	} else if (_Row.gap > 0) {
+		_Value.Value = FormatGap(_Row.gap);
+		_Value.TextColor = {{ muted_vec3|safe }};
+	} else {
+		_Value.Value = FormatTime(_Row.time);
+		_Value.TextColor = {{ text_vec3|safe }};
+	}
+}
+
 Void Update(K_Data _Data) {
+	declare CMlLabel Title <=> (Page.GetFirstChild("pw-title") as CMlLabel);
+	declare CMlLabel Subtitle <=> (Page.GetFirstChild("pw-subtitle") as CMlLabel);
+	if (_Data.title != "") {
+		Title.Value = _Data.title;
+	}
+	Subtitle.Value = _Data.subtitle;
+
+	// The local player always sees their own line: when below the visible rows, the last row
+	// becomes a pinned copy of it.
+	declare Integer Own = -1;
+	foreach (Index => Row in _Data.rows) {
+		if (Row.login == LocalUser.Login) Own = Index;
+	}
+	declare Integer Shown = _Data.rows.count;
+	if (Shown > C_MaxRows) Shown = C_MaxRows;
+	declare Boolean Pinned = Own >= C_MaxRows;
+	if (Pinned) Shown = C_MaxRows - 1;
+
 	declare Boolean[Text] Present;
-	foreach (Row in _Data.rows) {
-		Present[Row.login] = True;
+	for (Slot, 0, Shown - 1) {
+		Present[_Data.rows[Slot].login] = True;
 	}
 	declare Text[] Gone;
 	foreach (Login => Index in G_LoginFrame) {
@@ -71,8 +142,8 @@ Void Update(K_Data _Data) {
 		G_FrameLogin.removekey(Index);
 	}
 
-	foreach (Slot => Row in _Data.rows) {
-		if (Slot >= C_MaxRows) break;
+	for (Slot, 0, Shown - 1) {
+		declare K_Row Row = _Data.rows[Slot];
 		declare Integer Index = -1;
 		declare Boolean IsNew = False;
 		if (G_LoginFrame.existskey(Row.login)) {
@@ -91,24 +162,11 @@ Void Update(K_Data _Data) {
 		declare CMlLabel LabelRank <=> (Page.GetFirstChild("row-"^Index^"-rank") as CMlLabel);
 		declare CMlLabel LabelName <=> (Page.GetFirstChild("row-"^Index^"-name") as CMlLabel);
 		declare CMlLabel LabelValue <=> (Page.GetFirstChild("row-"^Index^"-value") as CMlLabel);
+		declare CMlQuad Badge <=> (Page.GetFirstChild("row-"^Index^"-badge") as CMlQuad);
 		declare CMlQuad Highlight <=> (Page.GetFirstChild("row-"^Index^"-hl") as CMlQuad);
 
-		LabelRank.Value = TL::ToText(Row.rank);
-		LabelName.Value = Row.name;
-		if (_Data.mode == "points") {
-			LabelValue.Value = TL::ToText(Row.points);
-			if (Row.finished) {
-				LabelName.TextColor = {{ accent_vec3|safe }};
-			} else {
-				LabelName.TextColor = {{ text_vec3|safe }};
-			}
-		} else if (Row.gap > 0) {
-			LabelValue.Value = FormatGap(Row.gap);
-			LabelValue.TextColor = {{ muted_vec3|safe }};
-		} else {
-			LabelValue.Value = FormatTime(Row.time);
-			LabelValue.TextColor = {{ text_vec3|safe }};
-		}
+		PaintBadge(Badge, LabelRank, Row.rank);
+		PaintValue(LabelName, LabelValue, _Data.mode, Row);
 		Highlight.Visible = Row.login == LocalUser.Login;
 
 		declare Real TargetY = -C_RowHeight * ML::ToReal(Slot);
@@ -120,8 +178,17 @@ Void Update(K_Data _Data) {
 		AnimMgr.Add(Frame, "<anim pos=\"0 "^TargetY^"\" />", C_AnimMs, CAnimManager::EAnimManagerEasing::QuadOut);
 	}
 
+	declare CMlFrame OwnFrame <=> (Page.GetFirstChild("own") as CMlFrame);
+	OwnFrame.Visible = Pinned;
+	if (Pinned) {
+		declare K_Row Row = _Data.rows[Own];
+		OwnFrame.RelativePosition_V3 = <0., -C_RowHeight * ML::ToReal(Shown)>;
+		PaintBadge((Page.GetFirstChild("own-badge") as CMlQuad), (Page.GetFirstChild("own-rank") as CMlLabel), Row.rank);
+		PaintValue((Page.GetFirstChild("own-name") as CMlLabel), (Page.GetFirstChild("own-value") as CMlLabel), _Data.mode, Row);
+	}
+
 	declare CMlQuad Cutline <=> (Page.GetFirstChild("cutline") as CMlQuad);
-	if (_Data.cutline > 0 && _Data.cutline < _Data.rows.count && _Data.cutline < C_MaxRows) {
+	if (_Data.cutline > 0 && _Data.cutline < Shown) {
 		declare Real CutY = 0.2 - C_RowHeight * ML::ToReal(_Data.cutline);
 		AnimMgr.Flush(Cutline);
 		if (!Cutline.Visible) {

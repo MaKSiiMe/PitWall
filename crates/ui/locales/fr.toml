@@ -26,6 +26,7 @@ status_running = "en direct"
 status_paused = "en pause"
 status_finished = "terminée"
 status_aborted = "annulée"
+map_position = "MAP {current}/{total}"
 phase_step = "Phase {current}/{total}"
 
 maps_title = "MAPS · {count}"

@@ -17,11 +17,15 @@ pub struct RankingRow {
     pub finished: bool,
 }
 
-/// Live ranking.
+/// Live ranking (localized header).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RankingData {
     /// `time` or `points`.
     pub mode: String,
+    /// Header: cup phase or mode name; empty keeps the view's default title.
+    pub title: String,
+    /// Right of the header, e.g. "MAP 3/20".
+    pub subtitle: String,
     /// Number of qualified players (a line is drawn below), 0 = none.
     pub cutline: i32,
     pub rows: Vec<RankingRow>,

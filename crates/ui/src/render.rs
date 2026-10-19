@@ -92,6 +92,14 @@ struct RankingTemplate {
     accent_vec3: String,
     text_vec3: String,
     muted_vec3: String,
+    half_width: String,
+    gold_vec3: String,
+    silver_vec3: String,
+    bronze_vec3: String,
+    /// Badge of ranks below the podium.
+    badge_vec3: String,
+    /// Rank text on a podium badge.
+    dark_vec3: String,
 }
 
 #[derive(Template)]
@@ -377,7 +385,7 @@ impl Renderer {
                 title: t("ui.ranking_title"),
                 width: real(WIDGET_WIDTH),
                 title_width: real(WIDGET_WIDTH - 4.0),
-                name_width: real(WIDGET_WIDTH - 6.5 - 14.0),
+                name_width: real(WIDGET_WIDTH - 7.5 - 14.0),
                 value_x: real(WIDGET_WIDTH - 1.0),
                 row_height: real(ROW_HEIGHT),
                 row_inner,
@@ -386,6 +394,12 @@ impl Renderer {
                 accent_vec3: Theme::vec3(&self.theme.accent),
                 text_vec3: Theme::vec3(&self.theme.text),
                 muted_vec3: Theme::vec3(&self.theme.muted),
+                half_width: real(WIDGET_WIDTH / 2.0),
+                gold_vec3: Theme::vec3(&self.theme.gold),
+                silver_vec3: Theme::vec3(&self.theme.silver),
+                bronze_vec3: Theme::vec3(&self.theme.bronze),
+                badge_vec3: "<0.180, 0.180, 0.200>".to_owned(),
+                dark_vec3: "<0.070, 0.070, 0.080>".to_owned(),
             }
             .render()?,
             WidgetId::Records => RecordsTemplate {

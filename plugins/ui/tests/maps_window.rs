@@ -122,6 +122,20 @@ async fn map_window_follows_the_playlist() {
     })
     .await;
 
+    // The ranking header shows the mode and the map position, in the player's language.
+    server.send_script_callback(
+        "Maniaplanet.StartMap_Start",
+        &serde_json::json!({"count": 1, "restarted": false, "map": {"uid": "uid-Bravo"}}),
+    );
+    wait_until("ranking header", || {
+        pages_for(&server, "boss").iter().any(|p| {
+            p.contains("PitWall_Ranking_Data")
+                && p.contains("MAP 2/3")
+                && p.contains("CONTRE-LA-MONTRE")
+        })
+    })
+    .await;
+
     // The admin opens the window: the playlist, in French.
     handles.invoke(
         Actor::Player("boss".into()),

@@ -20,6 +20,10 @@ pub struct Theme {
     /// Color of time gains / losses in the checkpoint widget.
     pub good: String,
     pub bad: String,
+    /// Rank badges of the podium.
+    pub gold: String,
+    pub silver: String,
+    pub bronze: String,
 }
 
 impl Default for Theme {
@@ -32,6 +36,9 @@ impl Default for Theme {
             muted: "999".to_owned(),
             good: "39f".to_owned(),
             bad: "f44".to_owned(),
+            gold: "fb2".to_owned(),
+            silver: "bcd".to_owned(),
+            bronze: "c74".to_owned(),
         }
     }
 }
@@ -52,6 +59,9 @@ impl Theme {
         fix(&mut self.muted, &defaults.muted);
         fix(&mut self.good, &defaults.good);
         fix(&mut self.bad, &defaults.bad);
+        fix(&mut self.gold, &defaults.gold);
+        fix(&mut self.silver, &defaults.silver);
+        fix(&mut self.bronze, &defaults.bronze);
         self.background_opacity = self.background_opacity.clamp(0.0, 1.0);
         self
     }

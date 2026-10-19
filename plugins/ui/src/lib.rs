@@ -324,7 +324,56 @@ impl Ui {
             })
     }
 
-    fn ranking(&self, ctx: &PluginContext) -> RankingData {
+    /// Live ranking with its localized header.
+    fn ranking(&self, ctx: &PluginContext, lang: Lang) -> RankingData {
+        let mut data = self.ranking_rows(ctx);
+        data.title = self.ranking_title(ctx, lang);
+        data.subtitle = self
+            .map_position(ctx)
+            .map(|(current, total)| {
+                ctx.i18n.render(
+                    lang,
+                    &Text::tr("ui.map_position")
+                        .arg("current", current)
+                        .arg("total", total),
+                )
+            })
+            .unwrap_or_default();
+        data
+    }
+
+    /// Phase of the running cup, else the name of the current mode.
+    fn ranking_title(&self, ctx: &PluginContext, lang: Lang) -> String {
+        let phase = self
+            .cup
+            .as_ref()
+            .filter(|c| !matches!(c.status, CupStatus::Finished | CupStatus::Aborted))
+            .and_then(|c| c.phase.as_ref());
+        if let Some(phase) = phase {
+            let name = phase.name.get(lang);
+            let name = if name.is_empty() { &phase.id } else { name };
+            return name.to_uppercase();
+        }
+        let script = ctx.state.read(|s| s.script.clone());
+        pitwall_formats::mode::mode_of_script(&script)
+            .and_then(|mode| {
+                let formats = self.formats.read().ok()?;
+                Some(formats.get(mode.id)?.display_name(lang).to_uppercase())
+            })
+            .unwrap_or_default()
+    }
+
+    /// Position of the current map in the playlist, from 1.
+    fn map_position(&self, ctx: &PluginContext) -> Option<(usize, usize)> {
+        let playing = ctx
+            .state
+            .read(|s| s.map.as_ref().map(|m| m.file_name.clone()))?;
+        let playlist = &self.maps.playlist;
+        let index = playlist.iter().position(|m| m.file_name == playing)?;
+        Some((index + 1, playlist.len()))
+    }
+
+    fn ranking_rows(&self, ctx: &PluginContext) -> RankingData {
         let cutline = self
             .cup
             .as_ref()
@@ -356,6 +405,8 @@ impl Ui {
                 .collect();
             return RankingData {
                 mode: "time".into(),
+                title: String::new(),
+                subtitle: String::new(),
                 cutline,
                 rows,
             };
@@ -363,6 +414,8 @@ impl Ui {
         let Some(scores) = &self.scores else {
             return RankingData {
                 mode: "points".into(),
+                title: String::new(),
+                subtitle: String::new(),
                 cutline,
                 rows: Vec::new(),
             };
@@ -389,6 +442,8 @@ impl Ui {
             .collect();
         RankingData {
             mode: "points".into(),
+            title: String::new(),
+            subtitle: String::new(),
             cutline,
             rows,
         }
@@ -476,7 +531,9 @@ impl Ui {
         lang: Option<Lang>,
     ) -> Option<String> {
         let result = match widget {
-            WidgetId::Ranking => self.renderer.data(widget, &self.ranking(ctx)),
+            WidgetId::Ranking => self
+                .renderer
+                .data(widget, &self.ranking(ctx, lang.unwrap_or(ctx.default_lang))),
             WidgetId::Records => self.renderer.data(widget, &self.records(ctx)),
             WidgetId::CupInfo => self.renderer.data(
                 widget,
@@ -510,11 +567,13 @@ impl Ui {
                 }
                 continue;
             }
-            let langs: Vec<Option<Lang>> = if widget == WidgetId::CupInfo {
-                Lang::ALL.into_iter().map(Some).collect()
-            } else {
-                vec![None]
-            };
+            // Widgets with localized data get one layer per language.
+            let langs: Vec<Option<Lang>> =
+                if matches!(widget, WidgetId::CupInfo | WidgetId::Ranking) {
+                    Lang::ALL.into_iter().map(Some).collect()
+                } else {
+                    vec![None]
+                };
             for lang in langs {
                 let logins: Vec<String> = self
                     .sent
@@ -543,6 +602,7 @@ impl Ui {
     fn on_event(&mut self, ctx: &PluginContext, event: Event) {
         match event {
             Event::Connected { .. } => {
+                self.fetch_playlist(ctx);
                 self.sent.clear();
                 self.last_data.clear();
                 for login in ctx
@@ -806,12 +866,9 @@ impl Ui {
         self.fetch_playlist(ctx);
     }
 
-    /// Fetches the playlist in the background when a window is open; it comes back through
-    /// the channel to [`Ui::on_playlist`].
+    /// Fetches the playlist in the background (map windows, map counter of the ranking); it
+    /// comes back through the channel to [`Ui::on_playlist`].
     fn fetch_playlist(&self, ctx: &PluginContext) {
-        if self.maps.open.is_empty() {
-            return;
-        }
         let commands = ctx.commands.clone();
         let tx = self.maps.tx.clone();
         tokio::spawn(async move {
@@ -834,6 +891,7 @@ impl Ui {
 
     fn on_playlist(&mut self, ctx: &PluginContext, playlist: Vec<MapInfo>) {
         self.maps.playlist = playlist;
+        self.mark(&[WidgetId::Ranking]);
         let logins: Vec<String> = self.maps.open.keys().cloned().collect();
         for login in logins {
             self.send_maps_window(ctx, &login);
