@@ -37,11 +37,13 @@ services:
       TM_SYSTEM_XMLRPC_ALLOWREMOTE: "True"
       # Public IP:port announced to players (needed behind Docker NAT), e.g. 203.0.113.10:2350
       TM_SYSTEM_FORCE_IP_ADDRESS: ${TM_SYSTEM_FORCE_IP_ADDRESS:-}
+      # MatchSettings the server starts with; PitWall saves the playlist and the mode in it.
+      TM_GAME_SETTINGS: ${TM_GAME_SETTINGS:-default.txt}
     volumes:
       - tm-userdata:/server/UserData
 
   pitwall:
-    image: ghcr.io/maksiime/pitwall:sha-1cb8c45
+    image: ghcr.io/maksiime/pitwall:sha-4ef84c2
     container_name: pitwall
     restart: unless-stopped
     depends_on:
@@ -52,6 +54,7 @@ services:
       PITWALL_SERVER__HOST: trackmania
       PITWALL_SERVER__PORT: "5000"
       PITWALL_SERVER__PASSWORD: ${TM_AUTHORIZATION_SUPERADMIN_PASSWORD:?set TM_AUTHORIZATION_SUPERADMIN_PASSWORD}
+      PITWALL_SERVER__PLAYLIST_FILE: MatchSettings/${TM_GAME_SETTINGS:-default.txt}
       PITWALL_CONTROLLER__DEFAULT_LANG: ${PITWALL_DEFAULT_LANG:-fr}
       PITWALL_CONTROLLER__DATA_DIR: /data
       PITWALL_CONTROLLER__MAPS_DIR: /data/maps
