@@ -60,8 +60,9 @@ impl Plugin for MapsPlugin {
 
     fn commands(&self) -> Vec<CommandSpec> {
         vec![
-            CommandSpec::new("maps", "map", Role::Admin)
-                .usage("/map <list|move|next|play|remove|clear|tmx|search|uid|club|local> ..."),
+            CommandSpec::new("maps", "map", Role::Admin).usage(
+                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|room|local> ...",
+            ),
         ]
     }
 
@@ -121,7 +122,7 @@ impl MapsPlugin {
         let usage = || {
             Text::tr("core.usage").arg(
                 "usage",
-                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|local> ...",
+                "/map <list|move|next|play|remove|clear|tmx|search|uid|club|room|local> ...",
             )
         };
         match inv.arg(0) {
@@ -209,31 +210,39 @@ impl MapsPlugin {
                         .arg("file", &file),
                 );
             }
-            Some("club") => {
+            Some(kind @ ("club" | "room")) => {
                 let nadeo = self
                     .nadeo
                     .as_ref()
                     .ok_or_else(|| "Nadeo API not configured".to_owned())?;
-                let (Some(club), Some(campaign)) = (
+                let (Some(club), Some(id)) = (
                     inv.arg(1).and_then(|v| v.parse().ok()),
                     inv.arg(2).and_then(|v| v.parse().ok()),
                 ) else {
-                    job.replier.say(
-                        Text::tr("core.usage").arg("usage", "/map club <club id> <campaign id>"),
-                    );
+                    let usage = if kind == "club" {
+                        "/map club <club id> <campaign id>"
+                    } else {
+                        "/map room <club id> <room id>"
+                    };
+                    job.replier.say(Text::tr("core.usage").arg("usage", usage));
                     return Ok(());
                 };
-                let campaign = nadeo
-                    .club_campaign(club, campaign)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                let list = if kind == "club" {
+                    nadeo.club_campaign(club, id).await
+                } else {
+                    nadeo.club_room(club, id).await
+                }
+                .map_err(|e| e.to_string())?;
+                if list.map_uids.is_empty() {
+                    return Err(format!("{}: no map (room linked to a server?)", list.name));
+                }
                 job.replier.say(
                     Text::tr("maps.campaign")
-                        .arg("count", campaign.map_uids.len())
-                        .arg("name", &campaign.name),
+                        .arg("count", list.map_uids.len())
+                        .arg("name", &list.name),
                 );
                 let maps = nadeo
-                    .maps(&campaign.map_uids)
+                    .maps(&list.map_uids)
                     .await
                     .map_err(|e| e.to_string())?;
                 for map in maps {

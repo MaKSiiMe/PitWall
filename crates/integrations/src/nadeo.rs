@@ -6,7 +6,10 @@
 //! - map info: `GET https://prod.trackmania.core.nadeo.online/maps/by-uid/?mapUidList=` (NadeoServices),
 //!   whose `fileUrl` points to the `.Map.Gbx`;
 //! - club campaign: `GET https://live-services.trackmania.nadeo.live/api/token/club/{club}/campaign/{campaign}`
-//!   (NadeoLiveServices), maps in `campaign.playlist[].mapUid`.
+//!   (NadeoLiveServices), maps in `campaign.playlist[].mapUid`;
+//! - club room: `GET https://live-services.trackmania.nadeo.live/api/token/club/{club}/room/{room}`
+//!   (NadeoLiveServices), maps in `room.maps` (uids; rarely an object with keys "0", "1"…);
+//!   403 `clubMemberRole:error-notMember` for a private room.
 //!
 //! Source: <https://webservices.openplanet.dev>.
 
@@ -89,9 +92,52 @@ struct PlaylistEntry {
     map_uid: String,
 }
 
-/// A club campaign.
+#[derive(Debug, Deserialize)]
+struct RoomResponse {
+    #[serde(default)]
+    name: String,
+    room: Room,
+}
+
+#[derive(Debug, Deserialize)]
+struct Room {
+    #[serde(default)]
+    maps: RoomMaps,
+}
+
+/// `room.maps`: an array of uids, or in rare cases an object keyed "0", "1"…
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RoomMaps {
+    List(Vec<String>),
+    Indexed(std::collections::BTreeMap<String, String>),
+}
+
+impl Default for RoomMaps {
+    fn default() -> Self {
+        RoomMaps::List(Vec::new())
+    }
+}
+
+impl RoomMaps {
+    fn into_uids(self) -> Vec<String> {
+        match self {
+            RoomMaps::List(uids) => uids,
+            RoomMaps::Indexed(map) => {
+                let mut entries: Vec<(u64, String)> = map
+                    .into_iter()
+                    .filter_map(|(k, v)| Some((k.parse().ok()?, v)))
+                    .collect();
+                entries.sort_by_key(|(k, _)| *k);
+                entries.into_iter().map(|(_, v)| v).collect()
+            }
+        }
+    }
+}
+
+/// Maps of a club campaign or room.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct ClubCampaign {
+pub struct ClubMaps {
     pub name: String,
     pub map_uids: Vec<String>,
 }
@@ -227,14 +273,28 @@ impl Nadeo {
         &self,
         club_id: i64,
         campaign_id: i64,
-    ) -> Result<ClubCampaign, IntegrationError> {
+    ) -> Result<ClubMaps, IntegrationError> {
         let url = format!("{LIVE}/api/token/club/{club_id}/campaign/{campaign_id}");
         let response: CampaignResponse = self.get_json(Audience::NadeoLiveServices, &url).await?;
         let mut playlist = response.campaign.playlist;
         playlist.sort_by_key(|p| p.position);
-        Ok(ClubCampaign {
+        Ok(ClubMaps {
             name: response.campaign.name,
             map_uids: playlist.into_iter().map(|p| p.map_uid).collect(),
+        })
+    }
+
+    /// Maps of a club room, in order. Rooms linked to a dedicated server list no maps.
+    pub async fn club_room(
+        &self,
+        club_id: i64,
+        room_id: i64,
+    ) -> Result<ClubMaps, IntegrationError> {
+        let url = format!("{LIVE}/api/token/club/{club_id}/room/{room_id}");
+        let response: RoomResponse = self.get_json(Audience::NadeoLiveServices, &url).await?;
+        Ok(ClubMaps {
+            name: response.name,
+            map_uids: response.room.maps.into_uids(),
         })
     }
 }
@@ -259,6 +319,17 @@ mod tests {
         )
         .unwrap();
         assert_eq!(campaign.campaign.playlist.len(), 2);
+
+        let room: RoomResponse = serde_json::from_str(
+            r#"{"activityId":381929,"name":"TM Exchange Pack 1","room":{"id":137873,"name":"TM Exchange Pack 1","maps":["gXTE8","7AHlB"]}}"#,
+        )
+        .unwrap();
+        assert_eq!(room.room.maps.into_uids(), vec!["gXTE8", "7AHlB"]);
+        let room: RoomResponse = serde_json::from_str(
+            r#"{"name":"Odd","room":{"maps":{"1":"B","0":"A","10":"K","2":"C"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(room.room.maps.into_uids(), vec!["A", "B", "C", "K"]);
     }
 
     #[test]

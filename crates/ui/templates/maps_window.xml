@@ -45,11 +45,23 @@
 	<label pos="108 -23" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ add_label }}" scriptevents="1" id="pw-tmx-add" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 	<label pos="134 -23" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ add_next_label }}" scriptevents="1" id="pw-tmx-next" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 
-	<label pos="108 -33" z-index="2" size="50 5" valign="center2" textfont="GameFontExtraBold" textsize="1" textcolor="{{ theme.accent }}" text="{{ search_title }}"/>
-	<quad pos="107 -36.5" z-index="1" size="51 6" bgcolor="fff" opacity="0.08"/>
-	<quad pos="107 -42.3" z-index="1" size="51 0.3" bgcolor="{{ theme.accent }}"/>
-	<entry pos="108 -37" z-index="2" size="50 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="{{ query }}" id="pw-tmx-q" scriptevents="1"/>
-	<label pos="108 -45" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ search_label }}" scriptevents="1" id="pw-tmx-search" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	<label pos="108 -33" z-index="2" size="50 5" valign="center2" textfont="GameFontExtraBold" textsize="1" textcolor="{{ theme.accent }}" text="{{ club_title }}"/>
+	<label pos="108 -37.5" z-index="2" size="24 3" valign="center2" textfont="GameFontRegular" textsize="0.7" textcolor="{{ theme.muted }}" text="{{ club_id_label }}"/>
+	<label pos="134 -37.5" z-index="2" size="24 3" valign="center2" textfont="GameFontRegular" textsize="0.7" textcolor="{{ theme.muted }}" text="{{ club_item_label }}"/>
+	<quad pos="107 -39.5" z-index="1" size="25 6" bgcolor="fff" opacity="0.08"/>
+	<quad pos="107 -45.3" z-index="1" size="25 0.3" bgcolor="{{ theme.accent }}"/>
+	<entry pos="108 -40" z-index="2" size="23 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="" id="pw-club-id" scriptevents="1"/>
+	<quad pos="133 -39.5" z-index="1" size="25 6" bgcolor="fff" opacity="0.08"/>
+	<quad pos="133 -45.3" z-index="1" size="25 0.3" bgcolor="{{ theme.accent }}"/>
+	<entry pos="134 -40" z-index="2" size="23 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="" id="pw-club-item" scriptevents="1"/>
+	<label pos="108 -48" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ club_campaign_label }}" scriptevents="1" id="pw-club-campaign" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+	<label pos="134 -48" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ club_room_label }}" scriptevents="1" id="pw-club-room" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
+
+	<label pos="108 -55" z-index="2" size="50 5" valign="center2" textfont="GameFontExtraBold" textsize="1" textcolor="{{ theme.accent }}" text="{{ search_title }}"/>
+	<quad pos="107 -58.5" z-index="1" size="51 6" bgcolor="fff" opacity="0.08"/>
+	<quad pos="107 -64.3" z-index="1" size="51 0.3" bgcolor="{{ theme.accent }}"/>
+	<entry pos="108 -59" z-index="2" size="50 5" valign="top" textsize="1" textcolor="{{ theme.text }}" default="{{ query }}" id="pw-tmx-q" scriptevents="1"/>
+	<label pos="108 -67" z-index="2" size="24 5" valign="center2" halign="left" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ search_label }}" scriptevents="1" id="pw-tmx-search" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}"/>
 {%- for r in results %}
 	<frame pos="108 {{ r.y }}" z-index="2">
 		<label pos="0 -1.8" z-index="2" size="39 4" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.text }}" text="{{ r.name }}"/>
@@ -59,7 +71,7 @@
 	</frame>
 {%- endfor %}
 {%- if no_result %}
-	<label pos="108 -52" z-index="2" size="50 5" valign="center2" textfont="GameFontRegular" textsize="0.9" textcolor="{{ theme.muted }}" text="{{ no_result_label }}"/>
+	<label pos="108 -74" z-index="2" size="50 5" valign="center2" textfont="GameFontRegular" textsize="0.9" textcolor="{{ theme.muted }}" text="{{ no_result_label }}"/>
 {%- endif %}
 </frame>
 <script><!--
@@ -67,6 +79,8 @@
 main() {
 	declare CMlEntry TmxId <=> (Page.GetFirstChild("pw-tmx-id") as CMlEntry);
 	declare CMlEntry Query <=> (Page.GetFirstChild("pw-tmx-q") as CMlEntry);
+	declare CMlEntry ClubId <=> (Page.GetFirstChild("pw-club-id") as CMlEntry);
+	declare CMlEntry ClubItem <=> (Page.GetFirstChild("pw-club-item") as CMlEntry);
 	declare CMlLabel Clear <=> (Page.GetFirstChild("pw-maps-clear") as CMlLabel);
 	declare Integer ClearArmedUntil = 0;
 	while (True) {
@@ -93,6 +107,14 @@ main() {
 				}
 				if (Event.ControlId == "pw-tmx-search" && Query.Value != "") {
 					Action = "pw:cmd:map search " ^ Query.Value;
+				}
+				if (ClubId.Value != "" && ClubItem.Value != "") {
+					if (Event.ControlId == "pw-club-campaign") {
+						Action = "pw:cmd:map club " ^ ClubId.Value ^ " " ^ ClubItem.Value;
+					}
+					if (Event.ControlId == "pw-club-room") {
+						Action = "pw:cmd:map room " ^ ClubId.Value ^ " " ^ ClubItem.Value;
+					}
 				}
 				if (Event.ControlId == "pw-maps-clear") {
 					// Two clicks within 3 s.

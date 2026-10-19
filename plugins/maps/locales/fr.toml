@@ -16,4 +16,4 @@ campaign = "$0afImport de {count} maps depuis {name}…"
 no_nadeo = "$f80API Nadeo non configurée (PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)."
 
 [maps.cmd]
-map = "Maps : list, move <de> <vers>, next <n>, play <n>, remove [n], clear, tmx <id|url> [next], search <nom>, uid <uid> [next], club <club> <campagne>, local [fichier]"
+map = "Maps : list, move <de> <vers>, next <n>, play <n>, remove [n], clear, tmx <id|url> [next], search <nom>, uid <uid> [next], club <club> <campagne>, room <club> <salon>, local [fichier]"

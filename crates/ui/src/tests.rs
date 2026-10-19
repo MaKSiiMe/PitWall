@@ -241,6 +241,7 @@ fn maps_window_renders_the_playlist() {
     assert!(!xml.contains("pw:cmd:map play 2") && xml.contains("pw:cmd:map play 3"));
     assert!(xml.contains("pw:cmd:map remove 2"));
     assert!(xml.contains("pw:cmd:map clear"));
+    assert!(xml.contains("pw:cmd:map club ") && xml.contains("pw:cmd:map room "));
     assert!(!xml.contains("pw:maps:page:"), "a single page");
 }
 

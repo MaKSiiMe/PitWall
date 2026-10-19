@@ -196,7 +196,7 @@ pub const MAPS_WINDOW_ID: &str = "PitWall_Maps";
 /// Playlist rows per page of the map manager.
 pub const MAPS_PER_PAGE: usize = 15;
 /// TMX search results shown in the map manager.
-pub const MAPS_MAX_RESULTS: usize = 7;
+pub const MAPS_MAX_RESULTS: usize = 5;
 
 /// A playlist map in the map manager.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -279,6 +279,11 @@ struct MapsWindowTemplate {
     add_title: String,
     add_label: String,
     add_next_label: String,
+    club_title: String,
+    club_id_label: String,
+    club_item_label: String,
+    club_campaign_label: String,
+    club_room_label: String,
     search_title: String,
     search_label: String,
     query: String,
@@ -556,7 +561,7 @@ impl Renderer {
             .take(MAPS_MAX_RESULTS)
             .enumerate()
             .map(|(i, r)| ResultLine {
-                y: real(-49.0 - i as f32 * 7.0),
+                y: real(-71.0 - i as f32 * 7.0),
                 name: r.name.clone(),
                 author: r.author.clone(),
                 add: format!("pw:cmd:map tmx {}", r.id),
@@ -588,6 +593,11 @@ impl Renderer {
             add_title: t("ui.maps_add_title"),
             add_label: t("ui.maps_add"),
             add_next_label: t("ui.maps_add_next"),
+            club_title: t("ui.maps_club_title"),
+            club_id_label: t("ui.maps_club_id"),
+            club_item_label: t("ui.maps_club_item"),
+            club_campaign_label: t("ui.maps_club_campaign"),
+            club_room_label: t("ui.maps_club_room"),
             search_title: t("ui.maps_search_title"),
             search_label: t("ui.maps_search"),
             query: window.query.clone(),

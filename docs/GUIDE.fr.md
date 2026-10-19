@@ -157,28 +157,36 @@ La fenêtre montre la playlist page par page, avec la map en cours surlignée :
 | --- | --- |
 | ▲ ▼ | monter / descendre la map d'une place |
 | » | la jouer juste après la map en cours |
-| ▶ | la jouer maintenant |
-| ✕ | la retirer de la playlist |
+| > | la jouer maintenant |
+| X | la retirer de la playlist |
 | Vider la playlist | garde seulement la map en cours (deux clics pour confirmer) |
 | Ajouter depuis TMX | colle un id ou une URL Trackmania Exchange, puis Entrée, « Ajouter » ou « Jouer ensuite » |
+| Club Nadeo | id du club + id de la campagne ou du salon, puis « Campagne » ou « Salon » : toutes ses maps sont ajoutées |
 | Recherche TMX | tape un nom, Entrée : les résultats s'affichent avec **+** (ajouter) et **»** (jouer ensuite) |
 
 La fenêtre se met à jour toute seule après chaque changement, y compris ceux d'un autre admin, et
-à chaque nouvelle map. ✕ en haut à droite la ferme.
+à chaque nouvelle map. X en haut à droite la ferme.
 
 Les mêmes actions existent en commandes (chat ou console PitWall). Les numéros sont ceux de
 `/map list` :
 
 | Commande | Effet |
 | --- | --- |
-| `/map list` | playlist actuelle (▶ = map en cours) |
+| `/map list` | playlist actuelle (» = map en cours) |
 | `/map move <de> <vers>` | déplacer une map, ex. `/map move 12 1` |
 | `/map next <n>` / `/map play <n>` | jouer la map n ensuite / maintenant |
 | `/map remove [n]` | retirer la map n (sans argument : la map en cours) |
 | `/map clear` | ne garder que la map en cours |
 | `/map tmx <id ou URL> [next]`, `/map search <texte>` | Trackmania Exchange |
-| `/map uid <uid> [next]`, `/map club <club id> <campaign id>` | maps Nadeo (compte serveur requis) |
+| `/map uid <uid> [next]` | une map Nadeo par son uid |
+| `/map club <club id> <campaign id>` | toutes les maps d'une campagne de club, de n'importe quel club public |
+| `/map room <club id> <room id>` | toutes les maps d'un salon de club |
 | `/map local [fichier]` | fichiers `.Map.Gbx` du dossier de PitWall (`/data/maps` dans le conteneur) |
+
+Les maps Nadeo demandent le compte du serveur dédié (`TM_MASTERSERVER_LOGIN`, déjà dans la
+stack). Les ids de club, de campagne et de salon se lisent sur trackmania.io. Un salon réservé aux
+membres de son club est refusé (le compte serveur n'en est pas membre), et un salon relié à un
+serveur dédié ne liste pas ses maps.
 
 Les maps téléchargées vont dans `UserData/Maps/PitWall/` sur le serveur. Pour une cup, chaque
 phase peut avoir sa propre liste (`maps = ["PitWall/tmx-123.Map.Gbx", …]` dans le `.toml` de
