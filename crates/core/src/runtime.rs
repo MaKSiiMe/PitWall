@@ -382,6 +382,11 @@ impl Connection {
         });
         // Remove leftovers of a previous controller run.
         let _ = client.hide_all_manialinks().await;
+        // Current scores (`Trackmania.Scores`, handled once `Connected` is out): rankings come
+        // back right away after a controller restart instead of at the end of the round.
+        if let Err(err) = client.request_scores("pitwall").await {
+            tracing::debug!(%err, "cannot request the scores (not in script mode?)");
+        }
         Ok((client, callbacks, version))
     }
 

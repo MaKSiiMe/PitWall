@@ -838,6 +838,9 @@ impl Ui {
                 }
             }
             Event::Scores { scores } => {
+                if Self::is_time_mode(ctx) && self.merge_best_times(ctx, &scores) {
+                    self.mark(&[WidgetId::Records]);
+                }
                 self.scores = Some(scores);
                 self.mark(&[WidgetId::Ranking]);
             }
@@ -880,6 +883,30 @@ impl Ui {
             }
             _ => {}
         }
+    }
+
+    /// Best times of the scores the ranking does not know yet (runs finished before a controller
+    /// restart, or missed). Returns `true` if any was added.
+    fn merge_best_times(&mut self, ctx: &PluginContext, scores: &Scores) -> bool {
+        let mut changed = false;
+        for p in scores.players.iter().filter(|p| p.bestracetime > 0) {
+            let better = self
+                .best
+                .get(&p.login)
+                .is_none_or(|run| p.bestracetime < run.time);
+            if better {
+                let name = Self::name_of(ctx, &p.login, &p.name);
+                self.best.insert(
+                    p.login.clone(),
+                    Run {
+                        name,
+                        time: p.bestracetime,
+                    },
+                );
+                changed = true;
+            }
+        }
+        changed
     }
 
     fn on_custom(&mut self, source: &str, name: &str, payload: serde_json::Value) {

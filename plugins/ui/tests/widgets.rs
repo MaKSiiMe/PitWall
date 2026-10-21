@@ -189,5 +189,25 @@ async fn widgets_follow_the_race_and_preferences() {
     })
     .await;
     assert_eq!(handles.roles.get("bob"), pitwall_core::Role::Player);
+
+    // Scores are requested on connection; in time attack their best times fill the ranking
+    // (runs finished before a controller restart).
+    assert!(server.calls().iter().any(|c| {
+        c.method == "TriggerModeScriptEventArray"
+            && c.params[0].as_str() == Some("Trackmania.GetScores")
+    }));
+    server.send_script_callback(
+        "Trackmania.Scores",
+        &serde_json::json!({"section": "", "players": [
+            {"login": "alice", "name": "Alice", "rank": 1, "bestracetime": 40_500},
+            {"login": "bob", "name": "Nick", "rank": 2, "bestracetime": 42_123},
+        ]}),
+    );
+    wait_until("ranking rebuilt from the scores", || {
+        pages_for(&server, "bob")
+            .iter()
+            .any(|p| p.contains("PitWall_Ranking_Data") && p.contains("40500"))
+    })
+    .await;
     shutdown.cancel();
 }
