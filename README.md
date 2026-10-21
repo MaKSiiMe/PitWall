@@ -23,8 +23,8 @@ French getting-started guide: [docs/GUIDE.fr.md](docs/GUIDE.fr.md).
 | Area | What you get |
 | --- | --- |
 | Protocol | GbxRemote 2 client: typed methods and callbacks (legacy + TM2020 script callbacks), multicall, timeouts, auto-reconnect |
-| Formats | Built-in TA, Rounds, Cup, Teams, Knockout, Laps, TMWT, Royal; custom formats in `config/formats/*.toml`; `/mode <format>`, `/set S_x value` |
-| Cups | Phases, qualification (top N / all / Lua), single elimination brackets (teams), start policy (manual / ready check / auto), disconnect policy (keep / pause / eliminate), registrations (list / open / in game / web, optional approval), state saved for crash recovery |
+| Formats | Built-in TA, Rounds, Cup, Teams, Knockout, Laps, TMWT, Royal; custom formats in `config/formats/*.toml`; `/mode <format>`, `/set S_x value`; `controller.formats` picks the ones offered (TA and Rounds by default) |
+| Cups | Phases, qualification (top N / all / Lua), single elimination brackets (teams), start policy (manual / ready check / auto), disconnect policy (keep / pause / eliminate), registrations (list / open / in game / web, optional approval), state saved for crash recovery; off by default for now (`controller.cups = true`) |
 | In-game UI | Live ranking, cup banner + ready button, records, collapsible role-based admin panel, instant show/hide menu, FR/EN |
 | Moderation | kick, ban, blacklist, mute, force spectator/player, teams, pause, end round, points corrections, guest list, password, test bots |
 | Roles | Player < Caster < Referee < Admin < SuperAdmin, fixed permissions |

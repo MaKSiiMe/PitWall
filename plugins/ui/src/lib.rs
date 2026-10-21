@@ -52,12 +52,23 @@ pub struct Prefs {
 pub struct UiPlugin {
     formats: SharedFormats,
     data_dir: PathBuf,
+    cups: bool,
 }
 
 impl UiPlugin {
     /// Preferences are saved in `<data_dir>/ui_prefs.json`.
     pub fn new(formats: SharedFormats, data_dir: PathBuf) -> UiPlugin {
-        UiPlugin { formats, data_dir }
+        UiPlugin {
+            formats,
+            data_dir,
+            cups: true,
+        }
+    }
+
+    /// Without cups, the cup banner is neither sent nor offered in the menu.
+    pub fn with_cups(mut self, cups: bool) -> UiPlugin {
+        self.cups = cups;
+        self
     }
 }
 
@@ -88,6 +99,7 @@ impl Plugin for UiPlugin {
             let (playlist_tx, mut playlist_rx) = mpsc::unbounded_channel();
             let mut ui = Ui {
                 scoreboard: !config.native_scoreboard,
+                cups: self.cups,
                 renderer: Renderer::new(config.theme, config.layout),
                 formats: self.formats,
                 prefs_file,
@@ -143,6 +155,8 @@ struct Sent {
 struct Ui {
     /// PitWall's scores table replaces Nadeo's.
     scoreboard: bool,
+    /// Cups are enabled (cup banner).
+    cups: bool,
     renderer: Renderer,
     formats: SharedFormats,
     prefs_file: PathBuf,
@@ -211,6 +225,7 @@ impl Ui {
             .into_iter()
             .filter(|w| *w != WidgetId::AdminPanel || role >= Role::Referee)
             .filter(|w| *w != WidgetId::Scoreboard || self.scoreboard)
+            .filter(|w| *w != WidgetId::CupInfo || self.cups)
             .collect()
     }
 
@@ -231,7 +246,7 @@ impl Ui {
             .formats
             .read()
             .map(|f| {
-                f.all()
+                f.offered()
                     .map(|d| (d.id.clone(), d.display_name(lang).to_owned()))
                     .collect()
             })
@@ -250,6 +265,7 @@ impl Ui {
             widgets: WidgetId::HIDEABLE
                 .into_iter()
                 .filter(|w| *w != WidgetId::AdminPanel || role >= Role::Referee)
+                .filter(|w| *w != WidgetId::CupInfo || self.cups)
                 .map(|w| (w, !prefs.hidden.contains(&w)))
                 .collect(),
             all_hidden: prefs.all_hidden,

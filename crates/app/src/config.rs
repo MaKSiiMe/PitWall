@@ -42,6 +42,11 @@ pub struct ControllerSection {
     pub maps_dir: PathBuf,
     /// Read commands from stdin.
     pub console: bool,
+    /// Formats offered in `/mode`, `/formats`, the admin panel and the dashboard (ids). Empty:
+    /// all of them.
+    pub formats: Vec<String>,
+    /// Cups: `/cup`, `/join`, `/ready`, the cup banner and the dashboard's cup pages.
+    pub cups: bool,
 }
 
 impl Default for ControllerSection {
@@ -54,6 +59,10 @@ impl Default for ControllerSection {
             data_dir: PathBuf::from("data"),
             maps_dir: PathBuf::from("config/maps"),
             console: true,
+            // Time attack and rounds first; the competition formats come back once they are
+            // reliable on the server.
+            formats: vec!["timeattack".to_owned(), "rounds".to_owned()],
+            cups: false,
         }
     }
 }
@@ -221,6 +230,22 @@ skip = ["checkpoint"]
         figment::Jail::expect_with(|_jail| {
             let err = load(Path::new("missing.toml")).unwrap_err();
             assert!(matches!(err, ConfigError::MissingPassword));
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn competition_formats_are_opt_in() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("PITWALL_SERVER__PASSWORD", "pw");
+            let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
+            assert_eq!(config.controller.formats, ["timeattack", "rounds"]);
+            assert!(!config.controller.cups);
+            jail.set_env("PITWALL_CONTROLLER__FORMATS", "[]");
+            jail.set_env("PITWALL_CONTROLLER__CUPS", "true");
+            let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
+            assert!(config.controller.formats.is_empty());
+            assert!(config.controller.cups);
             Ok(())
         });
     }

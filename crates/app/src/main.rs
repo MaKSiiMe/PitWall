@@ -62,10 +62,21 @@ async fn run(cli: Cli) -> Result<(), AppError> {
     init_logs(&config);
     tracing::info!(version = env!("CARGO_PKG_VERSION"), config = %cli.config.display(), "PitWall starting");
 
-    let formats = FormatRegistry::load(Some(&config.controller.formats_dir))?;
-    tracing::info!(count = formats.all().count(), "formats loaded");
-    let cups = CupLibrary::load(&config.controller.cups_dir, &formats)?;
-    tracing::info!(count = cups.all().count(), "cups loaded");
+    let mut formats = FormatRegistry::load(Some(&config.controller.formats_dir))?;
+    formats.offer_only(&config.controller.formats)?;
+    tracing::info!(
+        count = formats.all().count(),
+        offered = ?formats.offered().map(|f| f.id.as_str()).collect::<Vec<_>>(),
+        "formats loaded"
+    );
+    let cups = if config.controller.cups {
+        let cups = CupLibrary::load(&config.controller.cups_dir, &formats)?;
+        tracing::info!(count = cups.all().count(), "cups loaded");
+        cups
+    } else {
+        tracing::info!("cups disabled (controller.cups = false)");
+        CupLibrary::default()
+    };
     let translator = Translator::with_core_catalogs()?;
     if cli.check {
         println!(
@@ -96,7 +107,9 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         Arc::new(RwLock::new(cups)),
         config.controller.data_dir.clone(),
     );
-    controller.add_plugin(cup_plugin);
+    if config.controller.cups {
+        controller.add_plugin(cup_plugin);
+    }
     controller.add_plugin(pitwall_plugin_storage::StoragePlugin::new(storage.clone()));
     let http = pitwall_integrations::http_client().map_err(AppError::Integration)?;
     let nadeo = match pitwall_integrations::nadeo::Nadeo::new(
@@ -127,10 +140,10 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         .map_err(AppError::Integration)?;
         controller.add_plugin(pitwall_plugin_discord::DiscordPlugin::new(webhook));
     }
-    controller.add_plugin(pitwall_plugin_ui::UiPlugin::new(
-        Arc::clone(&formats),
-        config.controller.data_dir.clone(),
-    ));
+    controller.add_plugin(
+        pitwall_plugin_ui::UiPlugin::new(Arc::clone(&formats), config.controller.data_dir.clone())
+            .with_cups(config.controller.cups),
+    );
 
     let shutdown = CancellationToken::new();
     tokio::spawn(wait_for_signal(shutdown.clone()));
@@ -144,6 +157,7 @@ async fn run(cli: Cli) -> Result<(), AppError> {
                 bind: config.api.bind.clone(),
                 admin_token: config.api.admin_token.clone(),
                 public_url: config.api.public_url.clone(),
+                cups: config.controller.cups,
             },
         );
         let api_shutdown = shutdown.clone();

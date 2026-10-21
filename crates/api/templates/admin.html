@@ -13,6 +13,7 @@
   <pre class="console" id="console"></pre>
 </section>
 <div class="grid">
+  {% if t.cups %}
   <section class="card">
     <h2>{{ t.get("web.admin_cup") }}</h2>
     <form hx-post="/admin/command" hx-target="#console" class="row">
@@ -25,6 +26,7 @@
       {% for action in cup_actions %}<button hx-post="/admin/command" hx-vals='{{ action.1 }}' hx-target="#console">{{ action.0 }}</button>{% endfor %}
     </div>
   </section>
+  {% endif %}
   <section class="card">
     <h2>{{ t.get("web.admin_formats") }}</h2>
     <div class="row">
@@ -39,10 +41,12 @@
   <h2>{{ t.get("web.admin_players") }}</h2>
   <div hx-get="/admin/players" hx-trigger="load, every 3s"></div>
 </section>
+{% if t.cups %}
 <section class="card">
   <h2>{{ t.get("web.admin_registrations") }}</h2>
   <div hx-get="/admin/registrations" hx-trigger="load, every 5s"></div>
 </section>
+{% endif %}
 <section class="card">
   <h2>{{ t.get("web.admin_audit") }}</h2>
   <div hx-get="/admin/audit" hx-trigger="load, every 5s"></div>

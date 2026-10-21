@@ -36,6 +36,7 @@ async fn state() -> ApiState {
             bind: "127.0.0.1:0".into(),
             admin_token: TOKEN.into(),
             public_url: String::new(),
+            cups: true,
         },
     )
 }

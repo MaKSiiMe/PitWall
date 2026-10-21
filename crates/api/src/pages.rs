@@ -15,6 +15,8 @@ use crate::{ApiState, LANG_COOKIE, request_lang};
 pub(crate) struct Tr {
     i18n: Translator,
     lang: Lang,
+    /// Cups are enabled (navigation and admin sections).
+    pub(crate) cups: bool,
 }
 
 impl Tr {
@@ -22,6 +24,7 @@ impl Tr {
         Tr {
             i18n: state.handles().i18n.clone(),
             lang: request_lang(state, headers),
+            cups: state.0.config.cups,
         }
     }
 

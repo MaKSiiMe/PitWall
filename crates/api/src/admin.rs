@@ -147,7 +147,7 @@ pub(crate) async fn dashboard(State(state): State<ApiState>, headers: HeaderMap)
         .formats
         .read()
         .map(|f| {
-            f.all()
+            f.offered()
                 .map(|d| {
                     (
                         d.display_name(t.code()).to_owned(),

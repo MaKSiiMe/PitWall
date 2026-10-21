@@ -28,6 +28,9 @@ cups_dir = "config/cups"
 maps_dir = "config/maps"     # local .Map.Gbx files for /map local
 data_dir = "data"
 console = true              # read commands on stdin (type `help`)
+# Formats offered in /mode, /formats, the admin panel and the dashboard ([] = all of them).
+formats = ["timeattack", "rounds"]
+cups = false                # /cup, /join, /ready, cup banner and cup pages of the dashboard
 
 [roles]
 # Trackmania logins (the short id shown on trackmania.io, not the display name).

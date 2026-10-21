@@ -11,7 +11,7 @@
 //! S_RoundsPerMap = 3
 //! ```
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use pitwall_core::gbx::types::{ScriptSetting, ScriptSettings};
@@ -203,6 +203,9 @@ const BUILTIN: &[(&str, &str)] = &[
 #[derive(Debug, Clone, Default)]
 pub struct FormatRegistry {
     formats: BTreeMap<String, FormatDef>,
+    /// Ids offered to admins (`/mode`, `/formats`, admin panel, dashboard); the others stay
+    /// loaded for cups. `None`: all of them.
+    offered: Option<BTreeSet<String>>,
 }
 
 impl FormatRegistry {
@@ -264,6 +267,41 @@ impl FormatRegistry {
 
     pub fn all(&self) -> impl Iterator<Item = &FormatDef> {
         self.formats.values()
+    }
+
+    /// Offers only these formats to admins (ids or mode aliases); empty offers all of them.
+    pub fn offer_only(&mut self, ids: &[String]) -> Result<(), FormatError> {
+        if ids.is_empty() {
+            self.offered = None;
+            return Ok(());
+        }
+        let offered = ids
+            .iter()
+            .map(|id| {
+                self.get(id)
+                    .map(|def| def.id.to_ascii_lowercase())
+                    .ok_or_else(|| FormatError::NotFound(id.clone()))
+            })
+            .collect::<Result<_, _>>()?;
+        self.offered = Some(offered);
+        Ok(())
+    }
+
+    /// Formats offered to admins.
+    pub fn offered(&self) -> impl Iterator<Item = &FormatDef> {
+        self.formats
+            .iter()
+            .filter(|(id, _)| self.offered.as_ref().is_none_or(|o| o.contains(*id)))
+            .map(|(_, def)| def)
+    }
+
+    /// Like [`FormatRegistry::get`], among the offered formats only.
+    pub fn get_offered(&self, id: &str) -> Option<&FormatDef> {
+        self.get(id).filter(|def| {
+            self.offered
+                .as_ref()
+                .is_none_or(|o| o.contains(&def.id.to_ascii_lowercase()))
+        })
     }
 
     /// `apply_format("name")`: the mode switch for a format.
@@ -353,6 +391,26 @@ S_UseTieBreak = false
         )
         .unwrap_err();
         assert!(matches!(err, FormatError::BadSettingName { .. }));
+    }
+
+    #[test]
+    fn offers_a_subset() {
+        let mut registry = FormatRegistry::builtin().unwrap();
+        registry
+            .offer_only(&["ta".to_owned(), "rounds".to_owned()])
+            .unwrap();
+        let ids: Vec<&str> = registry.offered().map(|d| d.id.as_str()).collect();
+        assert_eq!(ids, ["rounds", "timeattack"]);
+        assert!(registry.get_offered("ta").is_some());
+        assert!(registry.get_offered("cup").is_none());
+        // Still loaded for cups.
+        assert!(registry.get("cup").is_some());
+        assert!(matches!(
+            registry.offer_only(&["nope".to_owned()]),
+            Err(FormatError::NotFound(_))
+        ));
+        registry.offer_only(&[]).unwrap();
+        assert_eq!(registry.offered().count(), registry.all().count());
     }
 
     #[test]

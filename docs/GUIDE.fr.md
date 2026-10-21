@@ -63,7 +63,7 @@ Dans la console, tape `help` : la liste des commandes s'affiche.
 | Connexion | lancer PitWall | `connected to the game server` dans les logs |
 | Commandes | `/help` dans le chat | liste en français si ton jeu est en français |
 | Widgets | rejoindre le serveur | classement live à droite, menu en bas à gauche |
-| Changement de mode | `/mode cup` puis `/mode ta` | rechargement de la map, personne n'est déconnecté, message « Mode : … » |
+| Changement de mode | `/mode rounds` puis `/mode ta` | rechargement de la map, personne n'est déconnecté, message « Mode : … » |
 | Bots | `/bot` (plusieurs fois), `/bot off` | des faux joueurs se connectent puis partent |
 | Classement | finir une course en TA | ta ligne apparaît en glissant, temps affiché |
 | Masquer | cliquer « ● Classement » dans le menu (en haut à gauche) | le widget disparaît instantanément, le choix est conservé |
@@ -72,6 +72,18 @@ Dans la console, tape `help` : la liste des commandes s'affiche.
 | Dashboard | `PITWALL_API__ADMIN_TOKEN=xxx` dans `.env`, ouvrir <http://127.0.0.1:8080/admin> | console web, joueurs, journal d'audit |
 
 ## 5. Mini-cup à 8
+
+> Pour l'instant seuls le contre-la-montre et les manches sont proposés (`/mode`, `/formats`,
+> panneau admin, dashboard) et les cups sont désactivées. Pour les retrouver, dans
+> `pitwall.toml` (ou en variables d'environnement) :
+>
+> ```toml
+> [controller]
+> formats = []   # tous les formats
+> cups = true
+> ```
+>
+> soit `PITWALL_CONTROLLER__FORMATS='[]'` et `PITWALL_CONTROLLER__CUPS=true`.
 
 `config/cups/mini-cup.toml` : 10 min de TimeAttack, puis une finale Cup pour les 4 premiers.
 

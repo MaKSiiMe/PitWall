@@ -48,9 +48,11 @@ pre.console { background:#000; color:#9fe; padding:12px; border-radius:4px; min-
   <div class="brand">Pit<span>Wall</span></div>
   <nav>
     <a href="/">{{ t.get("web.nav_home") }}</a>
+    {% if t.cups %}
     <a href="/cup">{{ t.get("web.nav_cup") }}</a>
     <a href="/history">{{ t.get("web.nav_history") }}</a>
     <a href="/register">{{ t.get("web.nav_register") }}</a>
+    {% endif %}
     <a href="/admin">{{ t.get("web.nav_admin") }}</a>
   </nav>
   <div class="lang"><a href="/lang/fr">FR</a><a href="/lang/en">EN</a></div>

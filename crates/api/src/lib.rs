@@ -33,6 +33,8 @@ pub struct ApiConfig {
     /// Empty disables the admin pages.
     pub admin_token: String,
     pub public_url: String,
+    /// Cups are enabled: cup, registration and history pages are linked.
+    pub cups: bool,
 }
 
 /// Errors starting the server.

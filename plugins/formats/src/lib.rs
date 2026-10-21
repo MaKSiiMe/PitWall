@@ -104,7 +104,7 @@ impl FormatsPlugin {
                 let Ok(formats) = self.formats.read() else {
                     return;
                 };
-                for def in formats.all() {
+                for def in formats.offered() {
                     ctx.reply(
                         &inv,
                         Text::tr("formats.list_entry")
@@ -120,7 +120,7 @@ impl FormatsPlugin {
                     return;
                 };
                 let switch = self.formats.read().ok().and_then(|f| {
-                    let def = f.get(id)?;
+                    let def = f.get_offered(id)?;
                     Some((
                         def.display_name(inv.lang).to_owned(),
                         def.to_mode_switch(&ScriptSettings::new(), None),

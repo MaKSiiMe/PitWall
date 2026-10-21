@@ -10,6 +10,7 @@
       <tr><th>{{ t.get("web.players") }}</th><td>{{ racing }} <span class="muted">+ {{ spectators }} {{ t.get("web.spectators") }}</span></td></tr>
     </table>
   </section>
+  {% if t.cups %}
   <section class="card">
     <h2>{{ t.get("web.nav_cup") }}</h2>
     {% match cup %}
@@ -22,6 +23,7 @@
       <p class="muted">{{ t.get("web.no_cup") }}</p>
     {% endmatch %}
   </section>
+  {% endif %}
 </div>
 <section class="card">
   <h2>{{ t.get("web.players") }}</h2>
