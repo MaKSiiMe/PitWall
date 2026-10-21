@@ -359,6 +359,24 @@ async fn hot_mode_switch_without_disconnecting_players() {
             && c.params[0] == Value::from("Trackmania.SetPointsRepartition")
     })
     .await;
+    // Fresh scores for the new map (the first request was made on connection).
+    let score_requests = || {
+        server
+            .calls()
+            .iter()
+            .filter(|c| {
+                c.method == "TriggerModeScriptEventArray"
+                    && c.params[0] == Value::from("Trackmania.GetScores")
+            })
+            .count()
+    };
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while score_requests() < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("scores not requested at map start");
     // Bob is still there.
     assert!(running.handles.state.player("bob").is_some());
     // The action was audited.

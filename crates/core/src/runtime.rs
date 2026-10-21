@@ -644,6 +644,11 @@ impl Connection {
                     map: Arc::new(map),
                     restarted: l.restarted,
                 });
+                // Points of the new map (reset, or carried over in the match) without waiting for
+                // the end of the first round.
+                if let Err(err) = client.request_scores("pitwall").await {
+                    tracing::debug!(%err, "cannot request the scores");
+                }
             }
             (Section::EndMap, Boundary::Start) => {
                 let map = state.read(|s| s.map.clone()).map(Arc::new);
