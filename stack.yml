@@ -43,7 +43,7 @@ services:
       - tm-userdata:/server/UserData
 
   pitwall:
-    image: ghcr.io/maksiime/pitwall:sha-4debc57
+    image: ghcr.io/maksiime/pitwall:sha-426ff13
     container_name: pitwall
     restart: unless-stopped
     depends_on:
