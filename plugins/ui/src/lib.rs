@@ -251,11 +251,11 @@ impl Ui {
                     .collect()
             })
             .unwrap_or_default();
-        let _ = ctx;
         AdminContext {
             role,
             formats,
             cup_loaded: self.cup.is_some(),
+            time_attack: ctx.state.read(|s| s.time_attack()),
         }
     }
 
@@ -859,7 +859,7 @@ impl Ui {
             Event::ModeChanged { .. } => {
                 self.scores = None;
                 self.finished.clear();
-                self.mark(&[WidgetId::Ranking]);
+                self.mark(&[WidgetId::Ranking, WidgetId::AdminPanel]);
             }
             Event::Audit { entry } if PLAYLIST_ACTIONS.contains(&entry.action.as_str()) => {
                 self.fetch_playlist(ctx);

@@ -56,6 +56,12 @@ impl ServerState {
             .collect()
     }
 
+    /// Whether the Time Attack mode is running (the mode with a map time limit).
+    pub fn time_attack(&self) -> bool {
+        crate::matchsettings::normalize_script_name(&self.script)
+            == "trackmania/tm_timeattack_online"
+    }
+
     pub fn lang_of(&self, login: &str) -> Option<Lang> {
         self.players.get(login).map(|p| p.lang)
     }

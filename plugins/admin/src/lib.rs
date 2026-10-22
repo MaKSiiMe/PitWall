@@ -1,5 +1,6 @@
 //! Moderation and match control commands for referees and admins.
 
+use pitwall_core::gbx::types::{ScriptSetting, ScriptSettings};
 use pitwall_core::state::FindPlayerError;
 use pitwall_core::{
     Command, CommandSpec, Event, Invocation, Lang, Plugin, PluginContext, PluginFuture, Role,
@@ -32,6 +33,7 @@ impl Plugin for AdminPlugin {
             spec("free", Role::Referee, "/free <player>"),
             spec("team", Role::Referee, "/team <player> <blue|red>"),
             spec("restart", Role::Referee, "/restart").alias("res"),
+            spec("addtime", Role::Referee, "/addtime [minutes]"),
             spec("next", Role::Admin, "/next").alias("skip"),
             spec("endround", Role::Referee, "/endround").alias("er"),
             spec("pause", Role::Referee, "/pause"),
@@ -67,9 +69,21 @@ impl Plugin for AdminPlugin {
 
     fn run(self: Box<Self>, mut ctx: PluginContext) -> PluginFuture {
         Box::pin(async move {
+            let mut extra: Option<ExtraTime> = None;
             while let Some(event) = ctx.next_event().await {
-                if let Event::Command { invocation } = event {
-                    handle(&ctx, &invocation);
+                match event {
+                    Event::Command { invocation } if invocation.name == "addtime" => {
+                        add_time(&ctx, &invocation, &mut extra);
+                    }
+                    Event::Command { invocation } => handle(&ctx, &invocation),
+                    Event::MapEnd { .. } => {
+                        if let Some(extra) = extra.take() {
+                            restore_time_limit(&ctx, extra.base);
+                        }
+                    }
+                    // The new mode came with its own settings.
+                    Event::ModeChanged { .. } => extra = None,
+                    _ => {}
                 }
             }
             Ok(())
@@ -135,6 +149,79 @@ fn run(ctx: &PluginContext, inv: &Invocation, command: Command, success: Option<
                 None => replier.say(Text::tr("core.done")),
             },
             Err(err) => replier.say(Text::tr("core.error").arg("message", err)),
+        }
+    });
+}
+
+/// Time added to the current Time Attack map, given back when the map ends.
+#[derive(Debug, Clone, Copy)]
+struct ExtraTime {
+    /// `S_TimeLimit` before the first `/addtime` on this map, in seconds.
+    base: i32,
+    added: i32,
+}
+
+fn time_limit(seconds: i32) -> ScriptSettings {
+    ScriptSettings::from([("S_TimeLimit".to_owned(), ScriptSetting::Int(seconds))])
+}
+
+/// `/addtime [minutes]`: extends the running Time Attack map (5 minutes by default). The mode
+/// script picks up a new `S_TimeLimit` during the map, counted from the map start.
+fn add_time(ctx: &PluginContext, inv: &Invocation, extra: &mut Option<ExtraTime>) {
+    let minutes = inv.arg(0).unwrap_or("5");
+    let seconds = minutes
+        .replace(',', ".")
+        .parse::<f64>()
+        .ok()
+        .filter(|m| m.is_finite() && *m > 0.0 && *m <= 600.0)
+        .map(|m| (m * 60.0).round() as i32);
+    let Some(seconds) = seconds.filter(|s| *s > 0) else {
+        return usage(ctx, inv);
+    };
+    let (time_attack, current) = ctx.state.read(|s| {
+        let current = match s.script_settings.get("S_TimeLimit") {
+            Some(ScriptSetting::Int(limit)) => *limit,
+            _ => 0,
+        };
+        (s.time_attack(), current)
+    });
+    if !time_attack {
+        ctx.reply(inv, Text::tr("admin.addtime_not_ta"));
+        return;
+    }
+    let state = extra.get_or_insert(ExtraTime {
+        base: current,
+        added: 0,
+    });
+    if state.base <= 0 {
+        *extra = None;
+        ctx.reply(inv, Text::tr("admin.addtime_no_limit"));
+        return;
+    }
+    state.added += seconds;
+    let limit = state.base + state.added;
+    tracing::info!(limit, added = state.added, "time limit extended");
+    let text = Text::tr("admin.time_added")
+        .arg("admin", invoker_name(ctx, inv))
+        .arg("minutes", minutes);
+    run(
+        ctx,
+        inv,
+        Command::SetModeSettings {
+            settings: time_limit(limit),
+        },
+        Some((true, text)),
+    );
+}
+
+/// Gives the next map the time limit it had before `/addtime`.
+fn restore_time_limit(ctx: &PluginContext, base: i32) {
+    let commands = ctx.commands.clone();
+    tokio::spawn(async move {
+        let settings = time_limit(base);
+        match commands.call(Command::SetModeSettings { settings }).await {
+            Ok(_) => tracing::info!(limit = base, "time limit restored"),
+            Err(err) => tracing::warn!(%err, "cannot restore the time limit"),
         }
     });
 }

@@ -76,6 +76,7 @@ Typed in game (`/help`), in the console (no slash needed) or in the web console.
 | `/players` | Caster | |
 | `/kick`, `/mute`, `/unmute`, `/spec`, `/play`, `/free`, `/team <p> <blue\|red>` | Referee | |
 | `/pause`, `/resume`, `/endround`, `/restart`, `/endwarmup`, `/say` | Referee | |
+| `/addtime [minutes]` | Referee | Time Attack: adds time to the running map (5 min by default, panel button `+5 min`); the next map gets its normal limit back |
 | `/points <p> <round\|map\|match> <n>`, `/teampoints <blue\|red> <…> <n>` | Referee | score corrections |
 | `/cup status\|go\|pause\|resume\|dq\|reinstate` | Referee | |
 | `/role <login> [role]` | Referee (set: SuperAdmin) | |

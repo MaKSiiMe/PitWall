@@ -36,6 +36,8 @@ pub struct AdminContext {
     /// `(id, localized name)` of the formats an admin can switch to.
     pub formats: Vec<(String, String)>,
     pub cup_loaded: bool,
+    /// Time Attack is running: offers to add time to the map.
+    pub time_attack: bool,
 }
 
 /// State of the menu for one player.
@@ -532,6 +534,9 @@ impl Renderer {
             entries.push((t("ui.btn_resume"), "resume".into()));
             entries.push((t("ui.btn_endround"), "endround".into()));
             entries.push((t("ui.btn_restart"), "restart".into()));
+            if ctx.time_attack {
+                entries.push((t("ui.btn_addtime"), "addtime 5".into()));
+            }
             if ctx.cup_loaded {
                 entries.push((t("ui.btn_cup_go"), "cup go".into()));
                 entries.push((t("ui.btn_cup_status"), "cup status".into()));

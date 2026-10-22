@@ -179,11 +179,22 @@ fn admin_panel_depends_on_role() {
         role: Role::Referee,
         formats: vec![("cup".into(), "Cup".into())],
         cup_loaded: true,
+        time_attack: false,
     };
     let xml = renderer.admin_panel(Lang::En, &i18n, &referee).unwrap();
     check_xml(&xml);
     assert!(xml.contains("pw:cmd:pause"));
     assert!(xml.contains("pw:cmd:cup go"));
+    assert!(
+        !xml.contains("pw:cmd:addtime"),
+        "no time limit outside Time Attack"
+    );
+    let time_attack = AdminContext {
+        time_attack: true,
+        ..referee.clone()
+    };
+    let xml = renderer.admin_panel(Lang::En, &i18n, &time_attack).unwrap();
+    assert!(xml.contains("pw:cmd:addtime 5"));
     assert!(
         !xml.contains("pw:cmd:mode cup"),
         "referees cannot switch formats"
@@ -328,6 +339,7 @@ fn pages_only_use_glyphs_the_game_renders() {
             role: Role::SuperAdmin,
             formats: vec![],
             cup_loaded: true,
+            time_attack: true,
         };
         assert_known_glyphs(&renderer.admin_panel(lang, &i18n, &admin).unwrap());
         let menu = MenuContext {
