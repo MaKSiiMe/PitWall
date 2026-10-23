@@ -70,6 +70,9 @@ services:
       PITWALL_API__PUBLIC_URL: ${PITWALL_API_PUBLIC_URL:-}
       PITWALL_NADEO__LOGIN: ${TM_MASTERSERVER_LOGIN}
       PITWALL_NADEO__PASSWORD: ${TM_MASTERSERVER_PASSWORD}
+      # Optional: names of the world records (OAuth application from api.trackmania.com/manager).
+      PITWALL_TRACKMANIA_API__CLIENT_ID: ${PITWALL_TM_API_CLIENT_ID:-}
+      PITWALL_TRACKMANIA_API__CLIENT_SECRET: ${PITWALL_TM_API_CLIENT_SECRET:-}
       PITWALL_DISCORD__WEBHOOK_URL: ${PITWALL_DISCORD_WEBHOOK_URL:-}
       # Every bus event (checkpoints, respawns…) is logged at info by the logger plugin: hidden
       # by default on the server, "info" shows them again.

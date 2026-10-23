@@ -105,6 +105,28 @@ struct RankingTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "world_records.xml")]
+struct WorldRecordsTemplate {
+    id: String,
+    prefix: String,
+    hidden_var: String,
+    x: String,
+    y: String,
+    theme: Theme,
+    bg_opacity: String,
+    title: String,
+    width: String,
+    title_width: String,
+    name_width: String,
+    value_x: String,
+    row_inner: String,
+    row_half: String,
+    row_offsets: Vec<String>,
+    own_y: String,
+    rows: usize,
+}
+
+#[derive(Template)]
 #[template(path = "records.xml")]
 struct RecordsTemplate {
     id: String,
@@ -200,6 +222,11 @@ struct MenuTemplate {
     all_hidden: bool,
     toggles: Vec<Toggle>,
 }
+
+/// Lines of the world top.
+pub const WORLD_RECORDS_ROWS: usize = 5;
+/// Lines of the best times widget, which sits below the world records.
+pub const RECORDS_ROWS: usize = 8;
 
 /// Visible lines of the scores table (one more slot pins the local player).
 pub const SCOREBOARD_ROWS: usize = 16;
@@ -469,8 +496,33 @@ impl Renderer {
                 value_x: real(WIDGET_WIDTH - 1.0),
                 row_inner,
                 row_half,
-                row_offsets: (0..max_rows).map(|i| real(ROW_HEIGHT * i as f32)).collect(),
-                max_rows,
+                row_offsets: (0..max_rows.min(RECORDS_ROWS))
+                    .map(|i| real(ROW_HEIGHT * i as f32))
+                    .collect(),
+                max_rows: max_rows.min(RECORDS_ROWS),
+            }
+            .render()?,
+            WidgetId::WorldRecords => WorldRecordsTemplate {
+                id: c.id,
+                prefix: c.prefix,
+                hidden_var: widget.hidden_var(),
+                x: c.x,
+                y: c.y,
+                theme: c.theme,
+                bg_opacity: c.bg_opacity,
+                title: t("ui.world_records_title"),
+                width: real(WIDGET_WIDTH),
+                title_width: real(WIDGET_WIDTH - 4.0),
+                name_width: real(WIDGET_WIDTH - 6.5 - 14.0),
+                value_x: real(WIDGET_WIDTH - 1.0),
+                row_inner: row_inner.clone(),
+                row_half: row_half.clone(),
+                row_offsets: (0..WORLD_RECORDS_ROWS)
+                    .map(|i| real(ROW_HEIGHT * i as f32))
+                    .collect(),
+                // A small gap between the top and the player's own line.
+                own_y: real(ROW_HEIGHT * WORLD_RECORDS_ROWS as f32 + 1.0),
+                rows: WORLD_RECORDS_ROWS,
             }
             .render()?,
             WidgetId::CupInfo => {

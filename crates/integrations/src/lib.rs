@@ -5,6 +5,7 @@ pub mod discord;
 pub mod export;
 pub mod nadeo;
 pub mod tmx;
+pub mod trackmania;
 
 /// Errors of external services.
 #[derive(Debug, thiserror::Error)]

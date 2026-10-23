@@ -215,6 +215,27 @@ La stack Portainer règle les deux côtés avec la même variable `TM_GAME_SETTI
 stack, garde `PITWALL_SERVER__PLAYLIST_FILE` (préfixée de `MatchSettings/`) égale à
 `TM_GAME_SETTINGS`.
 
+## 9. Records du monde
+
+Le widget **Records du monde** (en haut à gauche, au-dessus des meilleurs temps du serveur)
+affiche le top 5 mondial de la map et, en dessous, ta position mondiale et ton record. Il
+utilise le compte du serveur dédié (classements Nadeo) et se met à jour quand tu bats ton
+record en Time Attack. Une map inconnue de Nadeo (jamais publiée) n'a pas de classement : le
+widget reste caché.
+
+Les classements Nadeo ne donnent que des identifiants de compte. Pour afficher les pseudos des
+joueurs qui ne sont pas sur le serveur, crée une application OAuth (une fois) :
+
+1. Va sur <https://api.trackmania.com/manager>, connecte-toi avec ton compte Ubisoft.
+2. Crée une application de type **Confidential** (ce choix ne se change plus ensuite), avec
+   n'importe quelle URL de redirection, par exemple `http://localhost`.
+3. Copie l'**Identifier** et le **Secret** dans les variables de la stack Portainer :
+   `PITWALL_TM_API_CLIENT_ID` et `PITWALL_TM_API_CLIENT_SECRET`, puis « Update the stack ».
+   Seul le conteneur `pitwall` redémarre.
+
+Sans application, les pseudos des joueurs connectés s'affichent quand même ; les autres
+apparaissent sous la forme d'un début d'identifiant.
+
 ## À vérifier sur un vrai serveur
 
 Ces points suivent la documentation et le code d'autres contrôleurs, mais n'ont pas pu être
@@ -242,3 +263,7 @@ testés sans serveur réel :
    `[plugins.ui] native_scoreboard = true`.
    Un clic sur une ligne ouvre **Spectater** et **Profil** (et **Muet** / **Rétablir** pour les
    arbitres et au-dessus) ; un second clic referme.
+10. **Records du monde** : top 5, position mondiale (l'API Nadeo peut avoir jusqu'à ~3 h de
+   retard), pseudos via l'application OAuth. Un temps fait sur le serveur en Time Attack
+   compte-t-il bien pour le classement mondial ? Le log affiche `map unknown to Nadeo` pour une
+   map jamais publiée.

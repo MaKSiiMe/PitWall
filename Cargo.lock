@@ -1522,6 +1522,7 @@ dependencies = [
  "pitwall-plugin-maps",
  "pitwall-plugin-storage",
  "pitwall-plugin-ui",
+ "pitwall-plugin-worldrecords",
  "pitwall-storage",
  "serde",
  "thiserror",
@@ -1710,6 +1711,18 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "pitwall-plugin-worldrecords"
+version = "0.1.0"
+dependencies = [
+ "pitwall-core",
+ "pitwall-integrations",
+ "reqwest",
+ "serde_json",
+ "tokio",
  "tracing",
 ]
 

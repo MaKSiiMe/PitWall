@@ -1,6 +1,7 @@
 [ui]
 ranking_title = "LIVE RANKING"
 records_title = "BEST TIMES"
+world_records_title = "WORLD RECORDS"
 ready = "READY"
 ready_done = "READY!"
 ready_count = "Ready:"
@@ -64,6 +65,7 @@ maps_in_game = "$f80The map manager is an in-game window: use /map list, move, n
 ranking = "Ranking"
 cup_info = "Cup"
 records = "Records"
+world_records = "World records"
 admin_panel = "Admin"
 menu = "Menu"
 scoreboard = "Scoreboard"

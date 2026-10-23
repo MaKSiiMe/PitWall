@@ -9,7 +9,14 @@
 //!   (NadeoLiveServices), maps in `campaign.playlist[].mapUid`;
 //! - club room: `GET https://live-services.trackmania.nadeo.live/api/token/club/{club}/room/{room}`
 //!   (NadeoLiveServices), maps in `room.maps` (uids; rarely an object with keys "0", "1"…);
-//!   403 `clubMemberRole:error-notMember` for a private room.
+//!   403 `clubMemberRole:error-notMember` for a private room;
+//! - world top: `GET {LIVE}/api/token/leaderboard/group/Personal_Best/map/{uid}/top?length=&onlyWorld=true`
+//!   (NadeoLiveServices; server accounts cannot use zones, so `onlyWorld=true`);
+//! - personal bests: `GET {CORE}/v2/mapRecords/by-account/?accountIdList=&mapId=&gameMode=TimeAttack`
+//!   (NadeoServices; one map, map *id* not uid, secret thresholds give time 4294967295);
+//! - world position of a time: `POST {LIVE}/api/token/leaderboard/group/map?scores[{uid}]={time}`
+//!   with body `{"maps":[{"mapUid","groupUid":"Personal_Best"}]}` (one score per map and request,
+//!   positions are those a new record of that time would get, up to ~3 h late).
 //!
 //! Source: <https://webservices.openplanet.dev>.
 
@@ -69,6 +76,84 @@ pub struct NadeoMap {
     pub file_url: String,
     #[serde(default)]
     pub filename: String,
+    /// Id used by the records API.
+    #[serde(default)]
+    pub map_id: String,
+}
+
+/// One line of a map's world leaderboard.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeaderboardEntry {
+    pub account_id: String,
+    pub position: i64,
+    /// Time in ms; -1 below a secret threshold.
+    pub score: i64,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct TopResponse {
+    tops: Vec<TopZone>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct TopZone {
+    top: Vec<LeaderboardEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MapRecordEntry {
+    account_id: String,
+    record_score: RecordScore,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecordScore {
+    time: i64,
+}
+
+/// Time of a record hidden by a secret threshold.
+const SECRET_TIME: i64 = 4_294_967_295;
+
+#[derive(Debug, Deserialize)]
+struct PositionResponse {
+    #[serde(default)]
+    zones: Vec<PositionZone>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PositionZone {
+    #[serde(default)]
+    zone_name: String,
+    ranking: Ranking,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ranking {
+    position: i64,
+}
+
+/// Login of a TM2020 account: its id's 16 bytes in unpadded base64url.
+pub fn account_id_of_login(login: &str) -> Option<String> {
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(login)
+        .ok()?;
+    if bytes.len() != 16 {
+        return None;
+    }
+    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    Some(format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    ))
 }
 
 #[derive(Debug, Deserialize)]
@@ -268,6 +353,73 @@ impl Nadeo {
             .to_vec())
     }
 
+    /// The first `length` world records of a map (at most 100).
+    pub async fn world_top(
+        &self,
+        map_uid: &str,
+        length: u32,
+    ) -> Result<Vec<LeaderboardEntry>, IntegrationError> {
+        let url = format!(
+            "{LIVE}/api/token/leaderboard/group/Personal_Best/map/{map_uid}/top?length={}&onlyWorld=true&offset=0",
+            length.min(100)
+        );
+        let response: TopResponse = self.get_json(Audience::NadeoLiveServices, &url).await?;
+        Ok(response
+            .tops
+            .into_iter()
+            .next()
+            .map(|z| z.top)
+            .unwrap_or_default())
+    }
+
+    /// Personal bests (ms) of some accounts on a map, by account id. Hidden times are left out.
+    pub async fn personal_bests(
+        &self,
+        map_id: &str,
+        account_ids: &[String],
+    ) -> Result<Vec<(String, i64)>, IntegrationError> {
+        if account_ids.is_empty() || map_id.is_empty() {
+            return Ok(Vec::new());
+        }
+        let url = format!(
+            "{CORE}/v2/mapRecords/by-account/?accountIdList={}&mapId={map_id}&gameMode=TimeAttack",
+            account_ids.join(",")
+        );
+        let records: Vec<MapRecordEntry> = self.get_json(Audience::NadeoServices, &url).await?;
+        Ok(records
+            .into_iter()
+            .filter(|r| r.record_score.time > 0 && r.record_score.time != SECRET_TIME)
+            .map(|r| (r.account_id, r.record_score.time))
+            .collect())
+    }
+
+    /// World position a record of `time` ms gets on a map, if its leaderboard is open.
+    pub async fn world_position(
+        &self,
+        map_uid: &str,
+        time: i64,
+    ) -> Result<Option<i64>, IntegrationError> {
+        let token = self.token(Audience::NadeoLiveServices).await?;
+        let response = self
+            .http
+            .post(format!("{LIVE}/api/token/leaderboard/group/map"))
+            .query(&[(format!("scores[{map_uid}]"), time.to_string())])
+            .header("Authorization", format!("nadeo_v1 t={token}"))
+            .json(&serde_json::json!({
+                "maps": [{ "mapUid": map_uid, "groupUid": "Personal_Best" }]
+            }))
+            .send()
+            .await?;
+        let maps: Vec<PositionResponse> = check("Nadeo API", response).await?.json().await?;
+        Ok(maps.into_iter().next().and_then(|m| {
+            let world = m.zones.iter().position(|z| z.zone_name == "World");
+            m.zones
+                .into_iter()
+                .nth(world.unwrap_or(0))
+                .map(|z| z.ranking.position)
+        }))
+    }
+
     /// Maps of a club campaign, in playlist order.
     pub async fn club_campaign(
         &self,
@@ -330,6 +482,43 @@ mod tests {
         )
         .unwrap();
         assert_eq!(room.room.maps.into_uids(), vec!["A", "B", "C", "K"]);
+    }
+
+    #[test]
+    fn decodes_leaderboards() {
+        let top: TopResponse = serde_json::from_str(
+            r#"{"groupUid":"Personal_Best","mapUid":"ZJw6","tops":[{"zoneId":"301e","zoneName":"World","top":[
+                {"accountId":"6ec3711d","zoneId":"301f","zoneName":"Corrèze","position":1,"score":53145,"timestamp":1658783398}]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(top.tops[0].top[0].score, 53145);
+        let empty: TopResponse = serde_json::from_str("{}").unwrap();
+        assert!(empty.tops.is_empty());
+
+        let records: Vec<MapRecordEntry> = serde_json::from_str(
+            r#"[{"accountId":"2fd1f664","gameMode":"TimeAttack","mapId":"11f0","medal":4,
+                "recordScore":{"respawnCount":4294967295,"score":0,"time":22318},"removed":false}]"#,
+        )
+        .unwrap();
+        assert_eq!(records[0].record_score.time, 22318);
+
+        let positions: Vec<PositionResponse> = serde_json::from_str(
+            r#"[{"groupUid":"Personal_Best","mapUid":"Kn63","score":19976,"zones":[
+                {"zoneId":"301e","zoneName":"World","ranking":{"position":7062,"length":0}}]}]"#,
+        )
+        .unwrap();
+        assert_eq!(positions[0].zones[0].ranking.position, 7062);
+    }
+
+    #[test]
+    fn logins_are_account_ids() {
+        // 2fd1f664-85e4-4429-89ca-d49e4d2083a1 in unpadded base64url.
+        assert_eq!(
+            account_id_of_login("L9H2ZIXkRCmJytSeTSCDoQ").as_deref(),
+            Some("2fd1f664-85e4-4429-89ca-d49e4d2083a1")
+        );
+        assert_eq!(account_id_of_login("not a login"), None);
+        assert_eq!(account_id_of_login("*fakeplayer1*"), None);
     }
 
     #[test]

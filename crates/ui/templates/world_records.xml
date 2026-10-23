@@ -1,0 +1,92 @@
+<manialink id="{{ id }}" version="3" name="PitWall:WorldRecords">
+<frame pos="{{ x }} {{ y }}" z-index="10" id="world-records" hidden="1">
+	<quad pos="0 0" z-index="0" size="{{ width }} 5" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="1" size="0.6 5" bgcolor="{{ theme.accent }}"/>
+	<label pos="2.5 -2.5" z-index="2" size="{{ title_width }} 5" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.text }}" text="{{ title }}"/>
+	<frame pos="0 -5.5" z-index="1">
+{%- for i in 0..rows %}
+		<frame pos="0 -{{ row_offsets[i] }}" z-index="1" id="wr-{{ i }}" hidden="1">
+			<quad pos="0 0" z-index="0" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+			<quad pos="0 0" z-index="1" size="0.6 {{ row_inner }}" bgcolor="{{ theme.accent }}" id="wr-{{ i }}-hl" hidden="1"/>
+			<label pos="3.2 -{{ row_half }}" z-index="2" size="5 {{ row_inner }}" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" text="{{ i + 1 }}"/>
+			<label pos="6.5 -{{ row_half }}" z-index="2" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontSemiBold" textsize="1.1" textcolor="{{ theme.text }}" id="wr-{{ i }}-name"/>
+			<label pos="{{ value_x }} -{{ row_half }}" z-index="2" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="wr-{{ i }}-time"/>
+		</frame>
+{%- endfor %}
+		<!-- The local player's world position, when they are not in the top. -->
+		<frame pos="0 -{{ own_y }}" z-index="1" id="wr-own" hidden="1">
+			<quad pos="0 0" z-index="0" size="{{ width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+			<quad pos="0 0" z-index="1" size="0.6 {{ row_inner }}" bgcolor="{{ theme.accent }}"/>
+			<label pos="2.5 -{{ row_half }}" z-index="2" size="{{ name_width }} {{ row_inner }}" valign="center2" textfont="GameFontExtraBold" textsize="1.1" textcolor="{{ theme.accent }}" id="wr-own-position"/>
+			<label pos="{{ value_x }} -{{ row_half }}" z-index="2" size="13 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.1" textcolor="{{ theme.text }}" id="wr-own-time"/>
+		</frame>
+	</frame>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+
+#Const C_Rows {{ rows }}
+
+#Struct K_Row {
+	Text login;
+	Text name;
+	Integer time;
+	Integer position;
+}
+
+#Struct K_Own {
+	Text login;
+	Integer time;
+	Integer position;
+}
+
+#Struct K_Data {
+	K_Row[] rows;
+	K_Own[] players;
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Boolean {{ hidden_var }} for LocalUser;
+	declare Boolean PitWall_HideAll for LocalUser;
+	declare CMlFrame Root <=> (Page.GetFirstChild("world-records") as CMlFrame);
+	declare CMlFrame Own <=> (Page.GetFirstChild("wr-own") as CMlFrame);
+	declare Integer LastSerial = -1;
+	declare Boolean HasData = False;
+	while (True) {
+		yield;
+		Root.Visible = HasData && !(PitWall_HideAll || {{ hidden_var }});
+		if (LastSerial == {{ prefix }}_Serial) continue;
+		LastSerial = {{ prefix }}_Serial;
+		declare K_Data Data;
+		if (!Data.fromjson({{ prefix }}_Json)) continue;
+		declare Boolean InTop = False;
+		for (I, 0, C_Rows - 1) {
+			declare CMlFrame Frame <=> (Page.GetFirstChild("wr-"^I) as CMlFrame);
+			if (I >= Data.rows.count) {
+				Frame.Visible = False;
+				continue;
+			}
+			declare K_Row Row = Data.rows[I];
+			(Page.GetFirstChild("wr-"^I^"-name") as CMlLabel).Value = Row.name;
+			(Page.GetFirstChild("wr-"^I^"-time") as CMlLabel).Value = TL::TimeToText(Row.time, True, True);
+			declare Boolean Mine = Row.login != "" && Row.login == LocalUser.Login;
+			(Page.GetFirstChild("wr-"^I^"-hl") as CMlQuad).Visible = Mine;
+			if (Mine) InTop = True;
+			Frame.Visible = True;
+		}
+		Own.Visible = False;
+		foreach (Player in Data.players) {
+			if (Player.login != LocalUser.Login || InTop) continue;
+			declare Text Position = "#…";
+			if (Player.position > 0) Position = "#"^TL::ToText(Player.position);
+			(Page.GetFirstChild("wr-own-position") as CMlLabel).Value = Position;
+			(Page.GetFirstChild("wr-own-time") as CMlLabel).Value = TL::TimeToText(Player.time, True, True);
+			Own.Visible = True;
+		}
+		HasData = Data.rows.count > 0 || Own.Visible;
+	}
+}
+--></script>
+</manialink>

@@ -59,6 +59,30 @@ pub struct RecordsData {
     pub rows: Vec<RecordRow>,
 }
 
+/// One line of the world top. `login` is empty for players who are not connected.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WorldRecordRow {
+    pub login: String,
+    pub name: String,
+    pub time: i32,
+    pub position: i32,
+}
+
+/// A connected player's personal best; position 0 = not known yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct WorldRecordOwn {
+    pub login: String,
+    pub time: i32,
+    pub position: i32,
+}
+
+/// World top of the map, and every connected player's world position.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct WorldRecordsData {
+    pub rows: Vec<WorldRecordRow>,
+    pub players: Vec<WorldRecordOwn>,
+}
+
 /// One line of the scores table. Values are preformatted (times, "+12").
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ScoreboardRow {

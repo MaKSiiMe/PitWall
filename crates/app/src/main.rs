@@ -117,7 +117,7 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         &config.nadeo.login,
         &config.nadeo.password,
     ) {
-        Ok(nadeo) => Some(nadeo),
+        Ok(nadeo) => Some(Arc::new(nadeo)),
         Err(_) => {
             tracing::info!(
                 "Nadeo API disabled (set PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)"
@@ -125,6 +125,25 @@ async fn run(cli: Cli) -> Result<(), AppError> {
             None
         }
     };
+    if let Some(nadeo) = &nadeo {
+        let names = match pitwall_integrations::trackmania::TrackmaniaApi::new(
+            http.clone(),
+            &config.trackmania_api.client_id,
+            &config.trackmania_api.client_secret,
+        ) {
+            Ok(api) => Some(Arc::new(api)),
+            Err(_) => {
+                tracing::info!(
+                    "world record names from connected players only (set PITWALL_TRACKMANIA_API__CLIENT_ID / __CLIENT_SECRET)"
+                );
+                None
+            }
+        };
+        controller.add_plugin(pitwall_plugin_worldrecords::WorldRecordsPlugin::new(
+            Arc::clone(nadeo),
+            names,
+        ));
+    }
     controller.add_plugin(pitwall_plugin_maps::MapsPlugin::new(
         pitwall_integrations::tmx::Tmx::new(http.clone()),
         nadeo,

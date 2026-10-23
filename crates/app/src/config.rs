@@ -19,6 +19,7 @@ pub struct Config {
     pub roles: RolesConfig,
     pub log: LogSection,
     pub nadeo: NadeoSection,
+    pub trackmania_api: TrackmaniaApiSection,
     pub discord: DiscordSection,
     pub api: ApiSection,
     /// `[plugins.<name>]` sections, passed to each plugin.
@@ -73,6 +74,15 @@ impl Default for ControllerSection {
 pub struct NadeoSection {
     pub login: String,
     pub password: String,
+}
+
+/// Trackmania API OAuth application, for the names of the world records
+/// (`PITWALL_TRACKMANIA_API__CLIENT_ID` / `__CLIENT_SECRET`, from api.trackmania.com/manager).
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct TrackmaniaApiSection {
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 /// Discord webhook (`PITWALL_DISCORD__WEBHOOK_URL`).

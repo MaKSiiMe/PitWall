@@ -43,13 +43,13 @@ impl std::fmt::Debug for MapsPlugin {
 impl MapsPlugin {
     pub fn new(
         tmx: Tmx,
-        nadeo: Option<Nadeo>,
+        nadeo: Option<Arc<Nadeo>>,
         storage: Option<Storage>,
         local_dir: PathBuf,
     ) -> MapsPlugin {
         MapsPlugin {
             tmx,
-            nadeo: nadeo.map(Arc::new),
+            nadeo,
             storage,
             local_dir,
         }

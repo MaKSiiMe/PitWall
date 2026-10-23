@@ -48,6 +48,11 @@ public_url = ""             # e.g. https://cup.example.org (registration links)
 [nadeo]
 # Dedicated server account, for /map uid and /map club:
 # PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD
+# Also enables the world records widget (world top 5 and each player's world position).
+
+[trackmania_api]
+# OAuth application (api.trackmania.com/manager, Confidential) for the world record names:
+# PITWALL_TRACKMANIA_API__CLIENT_ID / PITWALL_TRACKMANIA_API__CLIENT_SECRET
 
 [discord]
 # webhook_url = "..."       # → set PITWALL_DISCORD__WEBHOOK_URL instead

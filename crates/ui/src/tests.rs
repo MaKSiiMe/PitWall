@@ -144,6 +144,28 @@ fn scoreboard_lines_offer_spectate_and_profile() {
 }
 
 #[test]
+fn world_records_sit_above_the_best_times() {
+    let renderer = Renderer::default();
+    let xml = renderer
+        .view(WidgetId::WorldRecords, Lang::Fr, &translator())
+        .unwrap();
+    let script = check_xml(&xml);
+    check_script(&script);
+    assert!(xml.contains("RECORDS DU MONDE"));
+    assert!(xml.contains(r#"id="wr-4""#) && !xml.contains(r#"id="wr-5""#));
+    // The player's own line, hidden while they are in the top; nothing shown without data.
+    assert!(xml.contains(r#"id="wr-own""#) && script.contains("InTop"));
+    assert!(script.contains("Root.Visible = HasData &&"));
+    let layout = renderer.layout();
+    assert!(layout.position(WidgetId::Records).y < layout.position(WidgetId::WorldRecords).y);
+    // The best times keep at most 8 lines below.
+    let records = renderer
+        .view(WidgetId::Records, Lang::En, &translator())
+        .unwrap();
+    assert!(records.contains("#Const C_MaxRows 8"));
+}
+
+#[test]
 fn views_are_localized() {
     let renderer = Renderer::default();
     let i18n = translator();

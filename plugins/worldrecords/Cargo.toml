@@ -1,0 +1,21 @@
+[package]
+name = "pitwall-plugin-worldrecords"
+description = "PitWall internal plugin: world top and world positions of the current map (Nadeo leaderboards)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+pitwall-core.workspace = true
+pitwall-integrations.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true

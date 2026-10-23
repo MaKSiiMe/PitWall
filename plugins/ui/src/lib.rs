@@ -20,8 +20,9 @@ use pitwall_formats::FormatRegistry;
 use pitwall_formats::cup::{CupSnapshot, CupStatus};
 use pitwall_ui::model::{
     CupInfoData, RankingData, RankingRow, RecordRow, RecordsData, ScoreboardData, ScoreboardRow,
+    WorldRecordOwn, WorldRecordRow, WorldRecordsData,
 };
-use pitwall_ui::render::{AdminContext, MapEntry, MapsWindow, MenuContext, TmxEntry};
+use pitwall_ui::render::{AdminContext, MapEntry, MapsWindow, MenuContext, RECORDS_ROWS, TmxEntry};
 use pitwall_ui::{Layout, Renderer, Theme, WidgetId};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -110,6 +111,7 @@ impl Plugin for UiPlugin {
                 cup: None,
                 ready: None,
                 records: None,
+                world: WorldRecordsData::default(),
                 dirty: BTreeSet::new(),
                 sent: HashMap::new(),
                 last_data: HashMap::new(),
@@ -171,6 +173,8 @@ struct Ui {
     ready: Option<(Vec<String>, i64)>,
     /// Best times provided by the storage plugin, if any.
     records: Option<Vec<RecordRow>>,
+    /// World top and positions from the world records plugin (empty without it).
+    world: WorldRecordsData,
     dirty: BTreeSet<WidgetId>,
     sent: HashMap<String, Sent>,
     /// Last JSON sent per data layer (and language), to skip identical updates.
@@ -643,7 +647,7 @@ impl Ui {
         RecordsData {
             rows: rows
                 .into_iter()
-                .take(self.renderer.layout().max_rows)
+                .take(self.renderer.layout().max_rows.min(RECORDS_ROWS))
                 .collect(),
         }
     }
@@ -711,6 +715,7 @@ impl Ui {
                 .renderer
                 .data(widget, &self.ranking(ctx, lang.unwrap_or(ctx.default_lang))),
             WidgetId::Records => self.renderer.data(widget, &self.records(ctx)),
+            WidgetId::WorldRecords => self.renderer.data(widget, &self.world),
             WidgetId::CupInfo => self.renderer.data(
                 widget,
                 &self.cup_info(ctx, lang.unwrap_or(ctx.default_lang)),
@@ -957,6 +962,10 @@ impl Ui {
                 self.records = rows;
                 self.mark(&[WidgetId::Records]);
             }
+            ("worldrecords", "records") => {
+                self.world = world_records(&payload);
+                self.mark(&[WidgetId::WorldRecords]);
+            }
             _ => {}
         }
     }
@@ -1183,6 +1192,42 @@ impl Ui {
 }
 
 /// `1:02.345`, `1:02:03.456` past an hour; empty without a time.
+/// Payload of `worldrecords/records` (see the world records plugin).
+fn world_records(payload: &serde_json::Value) -> WorldRecordsData {
+    let int = |v: &serde_json::Value| v.as_i64().and_then(|n| i32::try_from(n).ok());
+    let rows = payload["top"]
+        .as_array()
+        .map(|top| {
+            top.iter()
+                .filter_map(|r| {
+                    Some(WorldRecordRow {
+                        login: r["login"].as_str().unwrap_or_default().to_owned(),
+                        name: r["name"].as_str().unwrap_or_default().to_owned(),
+                        time: int(&r["time"])?,
+                        position: int(&r["position"]).unwrap_or_default(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let players = payload["players"]
+        .as_object()
+        .map(|players| {
+            players
+                .iter()
+                .filter_map(|(login, p)| {
+                    Some(WorldRecordOwn {
+                        login: login.clone(),
+                        time: int(&p["time"])?,
+                        position: int(&p["position"]).unwrap_or_default(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    WorldRecordsData { rows, players }
+}
+
 fn format_time(ms: i32) -> String {
     if ms <= 0 {
         return String::new();
@@ -1211,5 +1256,29 @@ mod tests {
         assert_eq!(format_time(3_723_456), "1:02:03.456");
         assert_eq!(format_time(-1), "");
         assert_eq!(format_gap(1_234), "+1.234");
+    }
+
+    #[test]
+    fn world_records_payload() {
+        let data = world_records(&serde_json::json!({
+            "top": [
+                { "account_id": "a", "login": "", "name": "Wirtual", "time": 41_207, "position": 1 },
+                { "account_id": "b", "login": "me", "name": "Me", "time": 41_500, "position": 2 },
+                { "name": "no time" }
+            ],
+            "players": {
+                "me": { "time": 41_500, "position": 2 },
+                "new": { "time": 52_000, "position": null }
+            }
+        }));
+        assert_eq!(data.rows.len(), 2);
+        assert_eq!(data.rows[1].login, "me");
+        assert_eq!(data.players.len(), 2);
+        let new = data.players.iter().find(|p| p.login == "new").unwrap();
+        assert_eq!((new.time, new.position), (52_000, 0));
+        assert_eq!(
+            world_records(&serde_json::json!({})),
+            WorldRecordsData::default()
+        );
     }
 }

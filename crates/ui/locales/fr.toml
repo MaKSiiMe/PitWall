@@ -1,6 +1,7 @@
 [ui]
 ranking_title = "CLASSEMENT LIVE"
 records_title = "MEILLEURS TEMPS"
+world_records_title = "RECORDS DU MONDE"
 ready = "PRÊT"
 ready_done = "PRÊT !"
 ready_count = "Prêts :"
@@ -64,6 +65,7 @@ maps_in_game = "$f80Le gestionnaire de maps est une fenêtre en jeu : ici, utili
 ranking = "Classement"
 cup_info = "Cup"
 records = "Records"
+world_records = "Records du monde"
 admin_panel = "Admin"
 menu = "Menu"
 scoreboard = "Tableau"

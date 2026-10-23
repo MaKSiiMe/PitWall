@@ -12,6 +12,8 @@ pub enum WidgetId {
     CupInfo,
     /// Best times on the map.
     Records,
+    /// World top of the map and the player's world position (Nadeo leaderboards).
+    WorldRecords,
     /// Buttons for referees and admins.
     AdminPanel,
     /// Toggles to show/hide the other widgets.
@@ -21,20 +23,22 @@ pub enum WidgetId {
 }
 
 impl WidgetId {
-    pub const ALL: [WidgetId; 6] = [
+    pub const ALL: [WidgetId; 7] = [
         WidgetId::Ranking,
         WidgetId::CupInfo,
         WidgetId::Records,
+        WidgetId::WorldRecords,
         WidgetId::AdminPanel,
         WidgetId::Menu,
         WidgetId::Scoreboard,
     ];
 
     /// Widgets players can hide from the menu.
-    pub const HIDEABLE: [WidgetId; 4] = [
+    pub const HIDEABLE: [WidgetId; 5] = [
         WidgetId::Ranking,
         WidgetId::CupInfo,
         WidgetId::Records,
+        WidgetId::WorldRecords,
         WidgetId::AdminPanel,
     ];
 
@@ -43,6 +47,7 @@ impl WidgetId {
             WidgetId::Ranking => "ranking",
             WidgetId::CupInfo => "cup_info",
             WidgetId::Records => "records",
+            WidgetId::WorldRecords => "world_records",
             WidgetId::AdminPanel => "admin_panel",
             WidgetId::Menu => "menu",
             WidgetId::Scoreboard => "scoreboard",
@@ -73,6 +78,7 @@ impl WidgetId {
             WidgetId::Ranking => "Ranking",
             WidgetId::CupInfo => "CupInfo",
             WidgetId::Records => "Records",
+            WidgetId::WorldRecords => "WorldRecords",
             WidgetId::AdminPanel => "AdminPanel",
             WidgetId::Menu => "Menu",
             WidgetId::Scoreboard => "Scoreboard",
