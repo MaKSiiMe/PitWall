@@ -238,6 +238,7 @@ struct ScoreboardTemplate {
     bg_rgba: String,
     row_inner: String,
     row_half: String,
+    flag_y: String,
     max_rows: usize,
     gold_vec3: String,
     silver_vec3: String,
@@ -559,6 +560,8 @@ impl Renderer {
             bg_rgba: c.bg_rgba,
             row_inner: real(ROW - 0.6),
             row_half: real((ROW - 0.6) / 2.0),
+            // 3.6-high flag centered on the line.
+            flag_y: real((ROW - 0.6 - 3.6) / 2.0),
             max_rows: SCOREBOARD_ROWS,
             gold_vec3: Theme::vec3(&self.theme.gold),
             silver_vec3: Theme::vec3(&self.theme.silver),

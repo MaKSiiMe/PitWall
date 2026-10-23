@@ -131,6 +131,10 @@ fn scoreboard_lines_offer_spectate_and_profile() {
         "players get no moderation buttons"
     );
 
+    // Country flag and club tag come from the game's user data.
+    assert!(player.contains(r#"id="sb-row-16-flag""#));
+    assert!(script.contains("Score.User.CountryFlagUrl") && script.contains("Score.User.ClubTag"));
+
     let referee = renderer.scoreboard(Lang::En, &i18n, true).unwrap();
     check_script(&check_xml(&referee));
     assert!(
