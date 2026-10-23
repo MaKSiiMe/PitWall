@@ -116,6 +116,30 @@ fn scoreboard_takes_the_scores_table_layer() {
 }
 
 #[test]
+fn scoreboard_lines_offer_spectate_and_profile() {
+    let renderer = Renderer::default();
+    let i18n = translator();
+    let player = renderer.scoreboard(Lang::Fr, &i18n, false).unwrap();
+    let script = check_xml(&player);
+    check_script(&script);
+    assert!(player.contains(r#"id="sb-row-0-hit""#) && player.contains(r#"id="sb-row-16-spec""#));
+    assert!(player.contains(r#"text="SPECTATER""#) && player.contains(r#"id="sb-row-3-profile""#));
+    assert!(script.contains("SetSpectateTarget(_Login)"));
+    assert!(script.contains("TMGame_ScoresTable_OpenProfileUserId for ClientUI"));
+    assert!(
+        !player.contains("-mute\""),
+        "players get no moderation buttons"
+    );
+
+    let referee = renderer.scoreboard(Lang::En, &i18n, true).unwrap();
+    check_script(&check_xml(&referee));
+    assert!(
+        referee.contains(r#"id="sb-row-2-mute""#) && referee.contains(r#"id="sb-row-2-unmute""#)
+    );
+    assert!(referee.contains(r#""pw:cmd:"^_Action^" "^_Login"#));
+}
+
+#[test]
 fn views_are_localized() {
     let renderer = Renderer::default();
     let i18n = translator();

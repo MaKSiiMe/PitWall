@@ -295,6 +295,11 @@ impl Ui {
                         self.renderer
                             .menu(lang, &ctx.i18n, &self.menu_context(login, role))
                     }
+                    // Same role as /mute.
+                    WidgetId::Scoreboard => {
+                        self.renderer
+                            .scoreboard(lang, &ctx.i18n, role >= Role::Referee)
+                    }
                     _ => self.renderer.view(widget, lang, &ctx.i18n),
                 }
             } else if previous.contains(&widget) {

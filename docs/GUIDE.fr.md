@@ -240,3 +240,5 @@ testés sans serveur réel :
 9. **Tableau Tab de PitWall** (calque `ScoresTable`) : il remplace celui de Nadeo, masqué par
    `Common.UIModules.SetProperties` (`Race_ScoresTable`). Pour garder celui de Nadeo :
    `[plugins.ui] native_scoreboard = true`.
+   Un clic sur une ligne ouvre **Spectater** et **Profil** (et **Muet** / **Rétablir** pour les
+   arbitres et au-dessus) ; un second clic referme.

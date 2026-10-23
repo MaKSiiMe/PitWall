@@ -25,6 +25,13 @@
 		<label pos="139 -{{ row_half }}" z-index="3" size="30 {{ row_inner }}" halign="right" valign="center2" textfont="OswaldMono" textsize="1.3" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-info"/>
 		<label pos="164 -{{ row_half }}" z-index="3" size="22 {{ row_inner }}" halign="right" valign="center2" textfont="GameFontExtraBold" textsize="1.3" textcolor="{{ theme.good }}" id="sb-row-{{ row.index }}-delta"/>
 		<label pos="187 -{{ row_half }}" z-index="3" size="20 {{ row_inner }}" halign="right" valign="center2" textfont="GameFontExtraBold" textsize="1.4" textcolor="{{ theme.text }}" id="sb-row-{{ row.index }}-total"/>
+		<quad pos="0 0" z-index="4" size="188 {{ row_inner }}" bgcolor="fff" opacity="0" scriptevents="1" id="sb-row-{{ row.index }}-hit"/>
+		<frame pos="0 0" z-index="5" id="sb-row-{{ row.index }}-actions" hidden="1">
+			<quad pos="{{ actions_x }} 0" z-index="0" size="{{ actions_width }} {{ row_inner }}" bgcolor="{{ theme.background }}" opacity="0.97"/>
+{%- for action in actions %}
+			<label pos="{{ action.x }} -{{ row_half }}" z-index="1" size="{{ action_width }} {{ row_inner }}" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="1" textcolor="{{ theme.text }}" text="{{ action.label }}" scriptevents="1" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}" id="sb-row-{{ row.index }}-{{ action.key }}"/>
+{%- endfor %}
+		</frame>
 	</frame>
 {%- endfor %}
 </frame>
@@ -80,7 +87,50 @@ Void Paint(Integer _Slot, K_Row _Row) {
 		Rank.Value = "-";
 	}
 	Highlight.Visible = _Row.login == LocalUser.Login;
+	declare Text PitWall_SbLogin for Frame = "";
+	PitWall_SbLogin = _Row.login;
 	Frame.Visible = True;
+}
+
+// Click on a line: its actions (spectate, profile, moderation) replace the right columns.
+Void ShowActions(Text _Login) {
+	for (Slot, 0, C_MaxRows) {
+		declare CMlFrame Frame <=> (Page.GetFirstChild("sb-row-"^Slot) as CMlFrame);
+		declare Text PitWall_SbLogin for Frame = "";
+		declare Boolean Open = _Login != "" && Frame.Visible && PitWall_SbLogin == _Login;
+		(Page.GetFirstChild("sb-row-"^Slot^"-actions") as CMlFrame).Visible = Open;
+		if (Open) {
+			// Nothing to spectate or mute on one's own line.
+			declare Boolean Other = _Login != LocalUser.Login;
+{%- for action in actions %}
+{%- if action.others_only %}
+			Page.GetFirstChild("sb-row-"^Slot^"-{{ action.key }}").Visible = Other;
+{%- endif %}
+{%- endfor %}
+		}
+	}
+}
+
+Text UserId(Text _Login) {
+	foreach (Score in Scores) {
+		if (Score.User != Null && Score.User.Login == _Login) return Score.User.WebServicesUserId;
+	}
+	return "";
+}
+
+Void Act(Text _Action, Text _Login) {
+	if (_Action == "spec") {
+		if (!IsSpectatorClient) RequestSpectatorClient(True);
+		SetSpectateTarget(_Login);
+	} else if (_Action == "profile") {
+		// Opens the game's profile card, as Nadeo's scores table does.
+		declare Text TMGame_ScoresTable_OpenProfileUserId for ClientUI = "";
+		declare Text Id = UserId(_Login);
+		if (Id != "") TMGame_ScoresTable_OpenProfileUserId = Id;
+	} else if (_Action == "mute" || _Action == "unmute") {
+		// Role-checked by the server.
+		TriggerPageAction("pw:cmd:"^_Action^" "^_Login);
+	}
 }
 
 Void Update(K_Data _Data) {
@@ -107,12 +157,41 @@ main() {
 	declare Text {{ prefix }}_Json for LocalUser;
 	declare Integer {{ prefix }}_Serial for LocalUser;
 	declare Integer LastSerial = -1;
+	declare Text OpenLogin = "";
 	while (True) {
 		yield;
 		if (LastSerial != {{ prefix }}_Serial) {
 			LastSerial = {{ prefix }}_Serial;
 			declare K_Data Data;
-			if (Data.fromjson({{ prefix }}_Json)) Update(Data);
+			if (Data.fromjson({{ prefix }}_Json)) {
+				Update(Data);
+				ShowActions(OpenLogin);
+			}
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.Control == Null) continue;
+			// "sb-row-<slot>-<part>"
+			declare Text[] Parts = TL::Split("-", Event.ControlId);
+			if (Parts.count != 4 || Parts[0] != "sb" || Parts[1] != "row") continue;
+			if (Parts[3] == "hit" && Event.Type == CMlScriptEvent::Type::MouseOver) {
+				(Event.Control as CMlQuad).Opacity = 0.08;
+			} else if (Parts[3] == "hit" && Event.Type == CMlScriptEvent::Type::MouseOut) {
+				(Event.Control as CMlQuad).Opacity = 0.0;
+			} else if (Event.Type == CMlScriptEvent::Type::MouseClick) {
+				declare CMlFrame Frame <=> (Page.GetFirstChild("sb-row-"^Parts[2]) as CMlFrame);
+				declare Text PitWall_SbLogin for Frame = "";
+				if (Parts[3] == "hit") {
+					if (OpenLogin == PitWall_SbLogin) {
+						OpenLogin = "";
+					} else {
+						OpenLogin = PitWall_SbLogin;
+					}
+				} else {
+					Act(Parts[3], PitWall_SbLogin);
+					OpenLogin = "";
+				}
+				ShowActions(OpenLogin);
+			}
 		}
 	}
 }

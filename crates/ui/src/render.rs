@@ -204,6 +204,16 @@ struct MenuTemplate {
 /// Visible lines of the scores table (one more slot pins the local player).
 pub const SCOREBOARD_ROWS: usize = 16;
 
+/// A button shown on a line of the scores table once clicked.
+struct ScoreboardAction {
+    /// Suffix of the control id, handled by the page script.
+    key: &'static str,
+    label: String,
+    x: String,
+    /// Hidden on the local player's own line.
+    others_only: bool,
+}
+
 struct ScoreboardLine {
     index: usize,
     y: String,
@@ -221,6 +231,11 @@ struct ScoreboardTemplate {
     height: String,
     col_name: String,
     rows: Vec<ScoreboardLine>,
+    actions: Vec<ScoreboardAction>,
+    actions_x: String,
+    actions_width: String,
+    action_width: String,
+    bg_rgba: String,
     row_inner: String,
     row_half: String,
     max_rows: usize,
@@ -476,46 +491,83 @@ impl Renderer {
                 }
                 .render()?
             }
-            WidgetId::Scoreboard => {
-                const ROW: f32 = 5.2;
-                const TOP: f32 = 27.0;
-                let mut rows: Vec<ScoreboardLine> = (0..SCOREBOARD_ROWS)
-                    .map(|i| ScoreboardLine {
-                        index: i,
-                        y: real(-TOP - ROW * i as f32),
-                        own: false,
-                        stripe: if i % 2 == 0 { "0.03" } else { "0.06" },
-                    })
-                    .collect();
-                let own_y = TOP + ROW * SCOREBOARD_ROWS as f32 + 2.0;
-                rows.push(ScoreboardLine {
-                    index: SCOREBOARD_ROWS,
-                    y: real(-own_y),
-                    own: true,
-                    stripe: "0.06",
-                });
-                ScoreboardTemplate {
-                    id: c.id,
-                    prefix: c.prefix,
-                    theme: c.theme,
-                    height: real(own_y + ROW + 2.0),
-                    col_name: t("ui.sb_player"),
-                    rows,
-                    row_inner: real(ROW - 0.6),
-                    row_half: real((ROW - 0.6) / 2.0),
-                    max_rows: SCOREBOARD_ROWS,
-                    gold_vec3: Theme::vec3(&self.theme.gold),
-                    silver_vec3: Theme::vec3(&self.theme.silver),
-                    bronze_vec3: Theme::vec3(&self.theme.bronze),
-                    badge_vec3: BADGE_VEC3.to_owned(),
-                    dark_vec3: DARK_VEC3.to_owned(),
-                    text_vec3: Theme::vec3(&self.theme.text),
-                }
-                .render()?
-            }
+            WidgetId::Scoreboard => self.scoreboard(lang, i18n, false)?,
             WidgetId::AdminPanel => self.admin_panel(lang, i18n, &AdminContext::default())?,
             WidgetId::Menu => self.menu(lang, i18n, &MenuContext::default())?,
         })
+    }
+
+    /// Scores table (Tab). Moderators also get mute buttons on the other players' lines.
+    pub fn scoreboard(
+        &self,
+        lang: Lang,
+        i18n: &Translator,
+        moderator: bool,
+    ) -> Result<String, RenderError> {
+        let t = |key: &str| i18n.t(lang, key);
+        const ROW: f32 = 5.2;
+        const TOP: f32 = 27.0;
+        const ACTION_WIDTH: f32 = 22.0;
+        let c = self.common(WidgetId::Scoreboard);
+        let mut keys = vec![
+            ("spec", "ui.sb_spectate", true),
+            ("profile", "ui.sb_profile", false),
+        ];
+        if moderator {
+            keys.push(("mute", "ui.sb_mute", true));
+            keys.push(("unmute", "ui.sb_unmute", true));
+        }
+        // Right-aligned on the 188-wide line.
+        let actions_width = keys.len() as f32 * (ACTION_WIDTH + 1.0) + 1.0;
+        let actions_x = 188.0 - actions_width;
+        let actions = keys
+            .into_iter()
+            .enumerate()
+            .map(|(i, (key, label, others_only))| ScoreboardAction {
+                key,
+                label: t(label),
+                x: real(actions_x + 1.0 + ACTION_WIDTH / 2.0 + i as f32 * (ACTION_WIDTH + 1.0)),
+                others_only,
+            })
+            .collect();
+        let mut rows: Vec<ScoreboardLine> = (0..SCOREBOARD_ROWS)
+            .map(|i| ScoreboardLine {
+                index: i,
+                y: real(-TOP - ROW * i as f32),
+                own: false,
+                stripe: if i % 2 == 0 { "0.03" } else { "0.06" },
+            })
+            .collect();
+        let own_y = TOP + ROW * SCOREBOARD_ROWS as f32 + 2.0;
+        rows.push(ScoreboardLine {
+            index: SCOREBOARD_ROWS,
+            y: real(-own_y),
+            own: true,
+            stripe: "0.06",
+        });
+        Ok(ScoreboardTemplate {
+            id: c.id,
+            prefix: c.prefix,
+            theme: c.theme,
+            height: real(own_y + ROW + 2.0),
+            col_name: t("ui.sb_player"),
+            rows,
+            actions,
+            actions_x: real(actions_x),
+            actions_width: real(actions_width),
+            action_width: real(ACTION_WIDTH),
+            bg_rgba: c.bg_rgba,
+            row_inner: real(ROW - 0.6),
+            row_half: real((ROW - 0.6) / 2.0),
+            max_rows: SCOREBOARD_ROWS,
+            gold_vec3: Theme::vec3(&self.theme.gold),
+            silver_vec3: Theme::vec3(&self.theme.silver),
+            bronze_vec3: Theme::vec3(&self.theme.bronze),
+            badge_vec3: BADGE_VEC3.to_owned(),
+            dark_vec3: DARK_VEC3.to_owned(),
+            text_vec3: Theme::vec3(&self.theme.text),
+        }
+        .render()?)
     }
 
     /// Admin panel for one role. Buttons send `pw:cmd:<command line>`; the command registry checks
