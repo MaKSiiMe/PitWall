@@ -236,6 +236,25 @@ joueurs qui ne sont pas sur le serveur, crée une application OAuth (une fois) :
 Sans application, les pseudos des joueurs connectés s'affichent quand même ; les autres
 apparaissent sous la forme d'un début d'identifiant.
 
+## 10. Votes
+
+N'importe quel joueur peut proposer `/skip` (passer la map) ou `/res` (la recommencer). Un
+widget en haut au centre affiche la question, le compte des voix et le temps restant ; on
+répond avec ses boutons **OUI** / **NON**, ou avec `/yes` et `/no`. Le vote passe dès que plus
+de la moitié des joueurs connectés a dit oui, échoue dès que ce n'est plus possible, et sinon
+se décide à la fin du temps, sur les voix exprimées. Un arbitre peut trancher avec
+`/vote pass` ou `/vote cancel`. Le vote s'arrête avec la map.
+
+Réglages (valeurs par défaut) :
+
+```toml
+[plugins.votes]
+enabled = true
+duration_s = 30   # temps pour répondre
+ratio = 0.5       # part de oui nécessaire
+cooldown_s = 60   # délai avant qu'un même joueur relance un vote
+```
+
 ## À vérifier sur un vrai serveur
 
 Ces points suivent la documentation et le code d'autres contrôleurs, mais n'ont pas pu être
@@ -267,3 +286,5 @@ testés sans serveur réel :
    retard), pseudos via l'application OAuth. Un temps fait sur le serveur en Time Attack
    compte-t-il bien pour le classement mondial ? Le log affiche `map unknown to Nadeo` pour une
    map jamais publiée.
+11. **Votes** : `/skip` puis `/yes` d'un second joueur ; boutons OUI / NON du widget ; la map
+   passe (`NextMap`) ou recommence (`RestartMap`) à la fin du vote.

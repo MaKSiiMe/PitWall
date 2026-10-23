@@ -166,6 +166,19 @@ fn world_records_sit_above_the_best_times() {
 }
 
 #[test]
+fn vote_widget_answers_through_commands() {
+    let xml = Renderer::default()
+        .view(WidgetId::Vote, Lang::Fr, &translator())
+        .unwrap();
+    let script = check_xml(&xml);
+    check_script(&script);
+    assert!(xml.contains("PASSER LA MAP ?") && xml.contains("RECOMMENCER LA MAP ?"));
+    assert!(script.contains(r#"TriggerPageAction("pw:cmd:yes")"#));
+    assert!(script.contains(r#"TriggerPageAction("pw:cmd:no")"#));
+    assert!(!WidgetId::Vote.hideable());
+}
+
+#[test]
 fn views_are_localized() {
     let renderer = Renderer::default();
     let i18n = translator();

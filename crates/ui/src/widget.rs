@@ -20,10 +20,12 @@ pub enum WidgetId {
     Menu,
     /// Full ranking on the scores table layer (Tab, end of map), replacing Nadeo's.
     Scoreboard,
+    /// The running player vote, with yes/no buttons.
+    Vote,
 }
 
 impl WidgetId {
-    pub const ALL: [WidgetId; 7] = [
+    pub const ALL: [WidgetId; 8] = [
         WidgetId::Ranking,
         WidgetId::CupInfo,
         WidgetId::Records,
@@ -31,6 +33,7 @@ impl WidgetId {
         WidgetId::AdminPanel,
         WidgetId::Menu,
         WidgetId::Scoreboard,
+        WidgetId::Vote,
     ];
 
     /// Widgets players can hide from the menu.
@@ -51,6 +54,7 @@ impl WidgetId {
             WidgetId::AdminPanel => "admin_panel",
             WidgetId::Menu => "menu",
             WidgetId::Scoreboard => "scoreboard",
+            WidgetId::Vote => "vote",
         }
     }
 
@@ -82,6 +86,7 @@ impl WidgetId {
             WidgetId::AdminPanel => "AdminPanel",
             WidgetId::Menu => "Menu",
             WidgetId::Scoreboard => "Scoreboard",
+            WidgetId::Vote => "Vote",
         }
     }
 

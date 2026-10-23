@@ -105,6 +105,23 @@ struct RankingTemplate {
 }
 
 #[derive(Template)]
+#[template(path = "vote.xml")]
+struct VoteTemplate {
+    id: String,
+    prefix: String,
+    x: String,
+    y: String,
+    theme: Theme,
+    bg_opacity: String,
+    bg_rgba: String,
+    skip_label: String,
+    restart_label: String,
+    by_label: String,
+    yes_label: String,
+    no_label: String,
+}
+
+#[derive(Template)]
 #[template(path = "world_records.xml")]
 struct WorldRecordsTemplate {
     id: String,
@@ -500,6 +517,21 @@ impl Renderer {
                     .map(|i| real(ROW_HEIGHT * i as f32))
                     .collect(),
                 max_rows: max_rows.min(RECORDS_ROWS),
+            }
+            .render()?,
+            WidgetId::Vote => VoteTemplate {
+                id: c.id,
+                prefix: c.prefix,
+                x: c.x,
+                y: c.y,
+                theme: c.theme,
+                bg_opacity: c.bg_opacity,
+                bg_rgba: c.bg_rgba,
+                skip_label: ms_string(&t("ui.vote_skip")),
+                restart_label: ms_string(&t("ui.vote_restart")),
+                by_label: ms_string(&t("ui.vote_by")),
+                yes_label: ms_string(&t("ui.vote_yes")),
+                no_label: ms_string(&t("ui.vote_no")),
             }
             .render()?,
             WidgetId::WorldRecords => WorldRecordsTemplate {

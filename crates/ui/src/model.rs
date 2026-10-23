@@ -105,3 +105,16 @@ pub struct ScoreboardData {
     pub col_total: String,
     pub rows: Vec<ScoreboardRow>,
 }
+
+/// The running vote (`active` false when there is none).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct VoteData {
+    pub active: bool,
+    /// `skip` or `restart`.
+    pub kind: String,
+    pub initiator: String,
+    pub yes: Vec<String>,
+    pub no: Vec<String>,
+    /// Remaining ms when sent.
+    pub remaining_ms: i32,
+}

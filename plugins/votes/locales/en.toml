@@ -1,0 +1,18 @@
+[votes]
+started_skip = "$0af{player}$z$s$fff wants to $0afskip the map$fff: $0af/yes$fff or $0af/no$fff ({seconds} s)."
+started_restart = "$0af{player}$z$s$fff wants to $0afrestart the map$fff: $0af/yes$fff or $0af/no$fff ({seconds} s)."
+passed = "$0f0Vote passed ({yes} yes, {no} no)."
+failed = "$f80Vote failed ({yes} yes, {no} no)."
+cancelled = "$f80Vote cancelled."
+forced = "$0f0Vote passed by a referee."
+running = "$f80A vote is already running."
+none = "$f80No vote is running."
+cooldown = "$f80Wait {seconds} s before calling another vote."
+disabled = "$f80Votes are disabled."
+
+[votes.cmd]
+skip = "Calls a vote to skip the map"
+res = "Calls a vote to restart the map"
+yes = "Votes yes"
+no = "Votes no"
+vote = "Manages the running vote: /vote <pass|cancel>"

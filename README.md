@@ -136,7 +136,7 @@ crates/integrations  TMX, Nadeo API, Discord webhooks, exports
 crates/api           web dashboard, JSON API, WebSocket (axum + htmx)
 crates/app           the `pitwall` binary: config, console, wiring
 plugins/*            internal plugins: logger, formats, admin, cup, ui, storage, maps, discord,
-                     worldrecords
+                     worldrecords, votes
 ```
 
 Plugins receive events and send commands; they never touch the socket. See

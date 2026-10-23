@@ -73,4 +73,11 @@ background_opacity = 0.75
 
 [plugins.ui.layout]
 max_rows = 12
-# positions = { ranking = { x = 116.0, y = 62.0 }, records = { x = -160.0, y = 62.0 } }
+# positions = { ranking = { x = 116.0, y = 62.0 }, world_records = { x = -160.0, y = 62.0 }, records = { x = -160.0, y = 26.0 } }
+
+[plugins.votes]
+# /skip and /res: player votes to skip or restart the map.
+enabled = true
+duration_s = 30
+ratio = 0.5
+cooldown_s = 60

@@ -1,0 +1,18 @@
+[votes]
+started_skip = "$0af{player}$z$s$fff propose de $0afpasser la map$fff : $0af/yes$fff ou $0af/no$fff ({seconds} s)."
+started_restart = "$0af{player}$z$s$fff propose de $0afrecommencer la map$fff : $0af/yes$fff ou $0af/no$fff ({seconds} s)."
+passed = "$0f0Vote accepté ({yes} oui, {no} non)."
+failed = "$f80Vote refusé ({yes} oui, {no} non)."
+cancelled = "$f80Vote annulé."
+forced = "$0f0Vote accepté par un arbitre."
+running = "$f80Un vote est déjà en cours."
+none = "$f80Aucun vote en cours."
+cooldown = "$f80Attends encore {seconds} s avant de proposer un vote."
+disabled = "$f80Les votes sont désactivés."
+
+[votes.cmd]
+skip = "Propose de passer la map"
+res = "Propose de recommencer la map"
+yes = "Vote oui"
+no = "Vote non"
+vote = "Gère le vote en cours : /vote <pass|cancel>"

@@ -144,6 +144,7 @@ async fn run(cli: Cli) -> Result<(), AppError> {
             names,
         ));
     }
+    controller.add_plugin(pitwall_plugin_votes::VotesPlugin);
     controller.add_plugin(pitwall_plugin_maps::MapsPlugin::new(
         pitwall_integrations::tmx::Tmx::new(http.clone()),
         nadeo,

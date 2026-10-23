@@ -1,0 +1,71 @@
+<manialink id="{{ id }}" version="3" name="PitWall:Vote">
+<frame pos="{{ x }} {{ y }}" z-index="15" id="vote" hidden="1">
+	<quad pos="0 0" z-index="0" size="72 17" halign="center" bgcolor="{{ theme.background }}" opacity="{{ bg_opacity }}"/>
+	<quad pos="0 0" z-index="1" size="72 0.5" halign="center" bgcolor="{{ theme.accent }}"/>
+	<label pos="0 -3.5" z-index="2" size="68 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.6" textcolor="{{ theme.text }}" id="vote-question"/>
+	<label pos="0 -7.5" z-index="2" size="68 4" halign="center" valign="center2" textfont="GameFontSemiBold" textsize="0.9" textcolor="{{ theme.muted }}" id="vote-by"/>
+	<label pos="-20 -12.5" z-index="2" size="26 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" scriptevents="1" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}" id="vote-yes"/>
+	<label pos="0 -12.5" z-index="2" size="12 5" halign="center" valign="center2" textfont="OswaldMono" textsize="1.2" textcolor="{{ theme.muted }}" id="vote-left"/>
+	<label pos="20 -12.5" z-index="2" size="26 5" halign="center" valign="center2" textfont="GameFontExtraBold" textsize="1.2" textcolor="{{ theme.text }}" scriptevents="1" focusareacolor1="{{ bg_rgba }}" focusareacolor2="{{ theme.accent }}" id="vote-no"/>
+</frame>
+<script><!--
+#Include "TextLib" as TL
+
+#Struct K_Data {
+	Boolean active;
+	Text kind;
+	Text initiator;
+	Text[] yes;
+	Text[] no;
+	Integer remaining_ms;
+}
+
+main() {
+	declare Text {{ prefix }}_Json for LocalUser;
+	declare Integer {{ prefix }}_Serial for LocalUser;
+	declare Integer LastSerial = -1;
+	declare Integer End = 0;
+	declare CMlFrame Root <=> (Page.GetFirstChild("vote") as CMlFrame);
+	declare CMlLabel Question <=> (Page.GetFirstChild("vote-question") as CMlLabel);
+	declare CMlLabel By <=> (Page.GetFirstChild("vote-by") as CMlLabel);
+	declare CMlLabel Yes <=> (Page.GetFirstChild("vote-yes") as CMlLabel);
+	declare CMlLabel No <=> (Page.GetFirstChild("vote-no") as CMlLabel);
+	declare CMlLabel Left <=> (Page.GetFirstChild("vote-left") as CMlLabel);
+	while (True) {
+		yield;
+		if (LastSerial != {{ prefix }}_Serial) {
+			LastSerial = {{ prefix }}_Serial;
+			declare K_Data Data;
+			if (Data.fromjson({{ prefix }}_Json)) {
+				Root.Visible = Data.active;
+				End = Now + Data.remaining_ms;
+				if (Data.kind == "restart") {
+					Question.Value = "{{ restart_label|safe }}";
+				} else {
+					Question.Value = "{{ skip_label|safe }}";
+				}
+				By.Value = "{{ by_label|safe }} $<"^Data.initiator^"$>";
+				// The player's own answer is marked.
+				declare Text YesMark = "";
+				declare Text NoMark = "";
+				if (Data.yes.exists(LocalUser.Login)) YesMark = "» ";
+				if (Data.no.exists(LocalUser.Login)) NoMark = "» ";
+				Yes.Value = YesMark^"{{ yes_label|safe }}  "^Data.yes.count;
+				No.Value = NoMark^"{{ no_label|safe }}  "^Data.no.count;
+			}
+		}
+		if (Root.Visible) {
+			declare Integer Seconds = (End - Now) / 1000;
+			if (Seconds < 0) Seconds = 0;
+			Left.Value = Seconds^" s";
+		}
+		foreach (Event in PendingEvents) {
+			if (Event.Type != CMlScriptEvent::Type::MouseClick) continue;
+			// Role-checked like any chat command.
+			if (Event.ControlId == "vote-yes") TriggerPageAction("pw:cmd:yes");
+			if (Event.ControlId == "vote-no") TriggerPageAction("pw:cmd:no");
+		}
+	}
+}
+--></script>
+</manialink>

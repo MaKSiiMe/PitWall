@@ -20,7 +20,7 @@ use pitwall_formats::FormatRegistry;
 use pitwall_formats::cup::{CupSnapshot, CupStatus};
 use pitwall_ui::model::{
     CupInfoData, RankingData, RankingRow, RecordRow, RecordsData, ScoreboardData, ScoreboardRow,
-    WorldRecordOwn, WorldRecordRow, WorldRecordsData,
+    VoteData, WorldRecordOwn, WorldRecordRow, WorldRecordsData,
 };
 use pitwall_ui::render::{AdminContext, MapEntry, MapsWindow, MenuContext, RECORDS_ROWS, TmxEntry};
 use pitwall_ui::{Layout, Renderer, Theme, WidgetId};
@@ -112,6 +112,7 @@ impl Plugin for UiPlugin {
                 ready: None,
                 records: None,
                 world: WorldRecordsData::default(),
+                vote: None,
                 dirty: BTreeSet::new(),
                 sent: HashMap::new(),
                 last_data: HashMap::new(),
@@ -175,6 +176,8 @@ struct Ui {
     records: Option<Vec<RecordRow>>,
     /// World top and positions from the world records plugin (empty without it).
     world: WorldRecordsData,
+    /// Running vote from the votes plugin, and its deadline (Unix ms).
+    vote: Option<(VoteData, i64)>,
     dirty: BTreeSet<WidgetId>,
     sent: HashMap<String, Sent>,
     /// Last JSON sent per data layer (and language), to skip identical updates.
@@ -716,6 +719,17 @@ impl Ui {
                 .data(widget, &self.ranking(ctx, lang.unwrap_or(ctx.default_lang))),
             WidgetId::Records => self.renderer.data(widget, &self.records(ctx)),
             WidgetId::WorldRecords => self.renderer.data(widget, &self.world),
+            WidgetId::Vote => {
+                let data = match &self.vote {
+                    Some((vote, deadline)) => VoteData {
+                        remaining_ms: i32::try_from((deadline - now_ms()).max(0))
+                            .unwrap_or(i32::MAX),
+                        ..vote.clone()
+                    },
+                    None => VoteData::default(),
+                };
+                self.renderer.data(widget, &data)
+            }
             WidgetId::CupInfo => self.renderer.data(
                 widget,
                 &self.cup_info(ctx, lang.unwrap_or(ctx.default_lang)),
@@ -962,6 +976,10 @@ impl Ui {
                 self.records = rows;
                 self.mark(&[WidgetId::Records]);
             }
+            ("votes", "state") => {
+                self.vote = vote(&payload);
+                self.mark(&[WidgetId::Vote]);
+            }
             ("worldrecords", "records") => {
                 self.world = world_records(&payload);
                 self.mark(&[WidgetId::WorldRecords]);
@@ -1192,6 +1210,34 @@ impl Ui {
 }
 
 /// `1:02.345`, `1:02:03.456` past an hour; empty without a time.
+/// Payload of `votes/state` (see the votes plugin), with the deadline.
+fn vote(payload: &serde_json::Value) -> Option<(VoteData, i64)> {
+    if !payload["active"].as_bool().unwrap_or_default() {
+        return None;
+    }
+    let logins = |key: &str| -> Vec<String> {
+        payload[key]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    Some((
+        VoteData {
+            active: true,
+            kind: payload["kind"].as_str().unwrap_or_default().to_owned(),
+            initiator: payload["initiator"].as_str().unwrap_or_default().to_owned(),
+            yes: logins("yes"),
+            no: logins("no"),
+            remaining_ms: 0,
+        },
+        payload["deadline_ms"].as_i64().unwrap_or_default(),
+    ))
+}
+
 /// Payload of `worldrecords/records` (see the world records plugin).
 fn world_records(payload: &serde_json::Value) -> WorldRecordsData {
     let int = |v: &serde_json::Value| v.as_i64().and_then(|n| i32::try_from(n).ok());
@@ -1256,6 +1302,21 @@ mod tests {
         assert_eq!(format_time(3_723_456), "1:02:03.456");
         assert_eq!(format_time(-1), "");
         assert_eq!(format_gap(1_234), "+1.234");
+    }
+
+    #[test]
+    fn vote_payload() {
+        assert_eq!(vote(&serde_json::json!({ "active": false })), None);
+        let (data, deadline) = vote(&serde_json::json!({
+            "active": true, "kind": "restart", "initiator": "Max",
+            "yes": ["a", "b"], "no": ["c"], "deadline_ms": 42
+        }))
+        .unwrap();
+        assert_eq!(
+            (data.kind.as_str(), data.yes.len(), data.no.len()),
+            ("restart", 2, 1)
+        );
+        assert_eq!(deadline, 42);
     }
 
     #[test]

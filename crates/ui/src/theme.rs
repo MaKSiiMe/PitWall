@@ -100,6 +100,7 @@ impl Default for Layout {
         let positions = [
             (WidgetId::Ranking, Position { x: 116.0, y: 62.0 }),
             (WidgetId::CupInfo, Position { x: 0.0, y: 88.0 }),
+            (WidgetId::Vote, Position { x: 0.0, y: 70.0 }),
             (WidgetId::WorldRecords, Position { x: -160.0, y: 62.0 }),
             // Below the world records.
             (WidgetId::Records, Position { x: -160.0, y: 26.0 }),
