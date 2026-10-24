@@ -56,6 +56,36 @@ Dans la console, tape `help` : la liste des commandes s'affiche.
    Sinon, en direct depuis la console : `role ton_login superadmin`. Ce changement est perdu au
    redémarrage.
 
+### Rôles : qui a le droit de faire quoi
+
+Rôles, du moins au plus puissant : **Joueur** < **Caster** < **Arbitre** < **Admin** <
+**SuperAdmin**. Un joueur a le plus haut des rôles qui lui viennent de ces sources :
+
+| Source | Où | Durée |
+| --- | --- | --- |
+| Configuration | `[roles]` de `pitwall.toml`, ou dans la stack `PITWALL_SUPERADMINS`, `PITWALL_ADMINS`, `PITWALL_REFEREES`, `PITWALL_CASTERS` | permanent |
+| Club Trackmania | `[roles] admin_clubs = [12345]`, ou `PITWALL_ADMIN_CLUBS=[12345]` : tous les membres du club sont **Admin** | relu toutes les 5 min et quand un joueur arrive |
+| Commande | `/role <login> <rôle>` (SuperAdmin) | jusqu'au redémarrage de PitWall |
+
+Sans rien de tout ça, on est **Joueur**. Les rôles ne sont pas stockés en base. La console de
+PitWall (Attach dans Portainer) et la console web du dashboard ont tous les droits.
+
+- **Club** : l'id du club est dans son URL sur trackmania.io (`https://trackmania.io/#/clubs/12345`).
+  Il faut le compte du serveur dédié (`PITWALL_NADEO__LOGIN`, déjà dans la stack). Quitter le
+  club retire le rôle au rafraîchissement suivant. Les logs affichent `club roles refreshed`
+  (nombre de membres) et `role from club membership` pour chaque changement. Un club vide ou un
+  id faux donne `club without members`.
+- **Maps pour tout le monde** : `[plugins.maps] players_can_add = true` (stack :
+  `PITWALL_PLAYERS_CAN_ADD_MAPS=true`) laisse chaque joueur ajouter des maps (`/map add`,
+  `/map tmx`, `/map uid`, `/map search`). Réordonner, retirer, vider et le gestionnaire `/maps`
+  restent réservés aux admins. Désactivé par défaut.
+- **Qui a fait quoi** : chaque action d'admin (ajout de map, changement de mode, kick…) est dans
+  le journal d'audit, avec son auteur : page `/admin/audit` du dashboard.
+
+Toutes les commandes passent par le même contrôle de rôle, qu'elles viennent du chat, de la
+console, du dashboard ou d'un bouton en jeu : un joueur qui envoie l'action d'un bouton qu'on ne
+lui a pas affiché est refusé comme s'il avait tapé la commande.
+
 ## 4. Vérifications (checklist)
 
 | Test | Comment | Attendu |
