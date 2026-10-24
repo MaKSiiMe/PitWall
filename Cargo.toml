@@ -29,6 +29,7 @@ pitwall-plugin-maps = { path = "plugins/maps" }
 pitwall-plugin-discord = { path = "plugins/discord" }
 pitwall-plugin-worldrecords = { path = "plugins/worldrecords" }
 pitwall-plugin-votes = { path = "plugins/votes" }
+pitwall-plugin-clubs = { path = "plugins/clubs" }
 
 # Async runtime
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "io-util", "io-std", "sync", "time", "signal"] }

@@ -38,6 +38,9 @@ superadmins = []
 admins = []
 referees = []
 casters = []
+# Trackmania club ids (trackmania.io/#/clubs/<id>) whose members are admins, refreshed every
+# 5 minutes from the Nadeo API (needs PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD).
+admin_clubs = []
 
 [api]
 enabled = true

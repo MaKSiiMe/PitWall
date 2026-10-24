@@ -16,7 +16,9 @@
 //!   (NadeoServices; one map, map *id* not uid, secret thresholds give time 4294967295);
 //! - world position of a time: `POST {LIVE}/api/token/leaderboard/group/map?scores[{uid}]={time}`
 //!   with body `{"maps":[{"mapUid","groupUid":"Personal_Best"}]}` (one score per map and request,
-//!   positions are those a new record of that time would get, up to ~3 h late).
+//!   positions are those a new record of that time would get, up to ~3 h late);
+//! - club members: `GET {LIVE}/api/token/club/{club}/member?length=&offset=` (NadeoLiveServices,
+//!   `length` up to 250), accounts in `clubMemberList[].accountId`, total in `itemCount`.
 //!
 //! Source: <https://webservices.openplanet.dev>.
 
@@ -155,6 +157,36 @@ pub fn account_id_of_login(login: &str) -> Option<String> {
         &hex[20..32]
     ))
 }
+
+/// Login of an account id: the inverse of [`account_id_of_login`].
+pub fn login_of_account_id(account_id: &str) -> Option<String> {
+    let hex: String = account_id.chars().filter(|c| *c != '-').collect();
+    if hex.len() != 32 {
+        return None;
+    }
+    let bytes = (0..16)
+        .map(|i| u8::from_str_radix(hex.get(i * 2..i * 2 + 2)?, 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    Some(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MembersResponse {
+    #[serde(default)]
+    club_member_list: Vec<ClubMember>,
+    #[serde(default)]
+    item_count: usize,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClubMember {
+    account_id: String,
+}
+
+/// Members fetched per request (the API maximum).
+const MEMBERS_PAGE: usize = 250;
 
 #[derive(Debug, Deserialize)]
 struct CampaignResponse {
@@ -436,6 +468,23 @@ impl Nadeo {
         })
     }
 
+    /// Account ids of every member of a club. An unknown club has no members.
+    pub async fn club_members(&self, club_id: i64) -> Result<Vec<String>, IntegrationError> {
+        let mut members = Vec::new();
+        loop {
+            let url = format!(
+                "{LIVE}/api/token/club/{club_id}/member?length={MEMBERS_PAGE}&offset={}",
+                members.len()
+            );
+            let page: MembersResponse = self.get_json(Audience::NadeoLiveServices, &url).await?;
+            let count = page.club_member_list.len();
+            members.extend(page.club_member_list.into_iter().map(|m| m.account_id));
+            if count < MEMBERS_PAGE || members.len() >= page.item_count {
+                return Ok(members);
+            }
+        }
+    }
+
     /// Maps of a club room, in order. Rooms linked to a dedicated server list no maps.
     pub async fn club_room(
         &self,
@@ -519,6 +568,30 @@ mod tests {
         );
         assert_eq!(account_id_of_login("not a login"), None);
         assert_eq!(account_id_of_login("*fakeplayer1*"), None);
+        assert_eq!(
+            login_of_account_id("2fd1f664-85e4-4429-89ca-d49e4d2083a1").as_deref(),
+            Some("L9H2ZIXkRCmJytSeTSCDoQ")
+        );
+        assert_eq!(login_of_account_id("2fd1f664"), None);
+        assert_eq!(
+            login_of_account_id("zzd1f664-85e4-4429-89ca-d49e4d2083a1"),
+            None
+        );
+    }
+
+    #[test]
+    fn decodes_club_members() {
+        let page: MembersResponse = serde_json::from_str(
+            r#"{"clubMemberList":[{"accountId":"2fd1f664-85e4-4429-89ca-d49e4d2083a1","clubId":9,
+                "role":"Creator","creationTimestamp":1591385606,"vip":true,"moderator":false,
+                "hasFeatured":false,"pin":false,"useTag":false}],"maxPage":1,"itemCount":1}"#,
+        )
+        .unwrap();
+        assert_eq!(page.item_count, 1);
+        assert_eq!(
+            page.club_member_list[0].account_id,
+            "2fd1f664-85e4-4429-89ca-d49e4d2083a1"
+        );
     }
 
     #[test]

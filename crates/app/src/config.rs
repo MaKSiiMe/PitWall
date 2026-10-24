@@ -233,6 +233,7 @@ skip = ["checkpoint"]
                 r#"["X6N6WxRIR_Sj6Xr10yuDJA"]"#,
             );
             jail.set_env("PITWALL_ROLES__ADMINS", "[a_login, b-login]");
+            jail.set_env("PITWALL_ROLES__ADMIN_CLUBS", "[12345]");
             jail.set_env("PITWALL_PLUGINS__MAPS__PLAYERS_CAN_ADD", "true");
             let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
             assert_eq!(
@@ -243,6 +244,7 @@ skip = ["checkpoint"]
                 config.roles.admins,
                 vec!["a_login".to_owned(), "b-login".to_owned()]
             );
+            assert_eq!(config.roles.admin_clubs, [12345]);
             assert!(config.plugin_flag("maps", "players_can_add"));
             assert!(!config.plugin_flag("maps", "missing"));
             Ok(())

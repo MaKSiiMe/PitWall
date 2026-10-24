@@ -1515,6 +1515,7 @@ dependencies = [
  "pitwall-formats",
  "pitwall-integrations",
  "pitwall-plugin-admin",
+ "pitwall-plugin-clubs",
  "pitwall-plugin-cup",
  "pitwall-plugin-discord",
  "pitwall-plugin-formats",
@@ -1619,6 +1620,16 @@ name = "pitwall-plugin-admin"
 version = "0.1.0"
 dependencies = [
  "pitwall-core",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "pitwall-plugin-clubs"
+version = "0.1.0"
+dependencies = [
+ "pitwall-core",
+ "pitwall-integrations",
  "tokio",
  "tracing",
 ]

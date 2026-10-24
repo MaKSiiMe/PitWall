@@ -65,6 +65,8 @@ services:
       PITWALL_ROLES__ADMINS: ${PITWALL_ADMINS:-[]}
       PITWALL_ROLES__REFEREES: ${PITWALL_REFEREES:-[]}
       PITWALL_ROLES__CASTERS: ${PITWALL_CASTERS:-[]}
+      # Trackmania club ids whose members are admins, e.g. [12345] (needs the Nadeo account).
+      PITWALL_ROLES__ADMIN_CLUBS: ${PITWALL_ADMIN_CLUBS:-[]}
       # true: every player may add maps (/map add|tmx|uid|search).
       PITWALL_PLUGINS__MAPS__PLAYERS_CAN_ADD: ${PITWALL_PLAYERS_CAN_ADD_MAPS:-false}
       PITWALL_API__BIND: 0.0.0.0:8080

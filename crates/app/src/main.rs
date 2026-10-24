@@ -179,6 +179,17 @@ async fn build(
             None
         }
     };
+    if !config.roles.admin_clubs.is_empty() {
+        match &nadeo {
+            Some(nadeo) => controller.add_plugin(pitwall_plugin_clubs::ClubsPlugin::new(
+                Arc::clone(nadeo),
+                config.roles.admin_clubs.clone(),
+            )),
+            None => tracing::warn!(
+                "roles.admin_clubs needs the Nadeo API (PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)"
+            ),
+        }
+    }
     if let Some(nadeo) = &nadeo {
         let names = match pitwall_integrations::trackmania::TrackmaniaApi::new(
             http.clone(),
@@ -300,6 +311,7 @@ mod tests {
         config.trackmania_api.client_id = "id".to_owned();
         config.trackmania_api.client_secret = "secret".to_owned();
         config.discord.webhook_url = "https://discord.invalid/webhook".to_owned();
+        config.roles.admin_clubs = vec![1];
 
         let app = build(
             &config,
