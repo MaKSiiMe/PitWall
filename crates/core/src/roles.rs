@@ -102,12 +102,18 @@ pub struct RolesConfig {
     pub admins: Vec<String>,
     pub referees: Vec<String>,
     pub casters: Vec<String>,
+    /// Trackmania club ids whose members are admins (needs the Nadeo API).
+    pub admin_clubs: Vec<i64>,
 }
 
 /// Login → role table, shared and mutable at runtime.
+///
+/// Two layers: roles set by the configuration or `/role`, and roles granted by a source that
+/// refreshes them as a whole (club membership). A login gets the higher of the two.
 #[derive(Debug, Clone, Default)]
 pub struct RoleBook {
     roles: Arc<RwLock<HashMap<String, Role>>>,
+    granted: Arc<RwLock<HashMap<String, Role>>>,
 }
 
 impl RoleBook {
@@ -128,12 +134,47 @@ impl RoleBook {
     }
 
     pub fn get(&self, login: &str) -> Role {
-        self.roles
+        let set = self
+            .roles
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(login)
             .copied()
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let granted = self
+            .granted
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(login)
+            .copied()
+            .unwrap_or_default();
+        set.max(granted)
+    }
+
+    /// Replaces the granted layer. Returns the logins whose role changed.
+    pub fn set_granted(&self, granted: HashMap<String, Role>) -> Vec<String> {
+        let before: HashMap<String, Role> = {
+            let current = self
+                .granted
+                .read()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            current
+                .keys()
+                .chain(granted.keys())
+                .map(|login| (login.clone(), self.get(login)))
+                .collect()
+        };
+        *self
+            .granted
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = granted;
+        let mut changed: Vec<String> = before
+            .into_iter()
+            .filter(|(login, role)| self.get(login) != *role)
+            .map(|(login, _)| login)
+            .collect();
+        changed.sort();
+        changed
     }
 
     pub fn set(&self, login: &str, role: Role) {
@@ -150,13 +191,26 @@ impl RoleBook {
 
     /// All logins with a role above `Player`.
     pub fn staff(&self) -> Vec<(String, Role)> {
-        let roles = self
-            .roles
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut staff: Vec<_> = roles.iter().map(|(l, r)| (l.clone(), *r)).collect();
-        staff.sort();
-        staff
+        let mut logins: Vec<String> = [&self.roles, &self.granted]
+            .iter()
+            .flat_map(|layer| {
+                layer
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .keys()
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        logins.sort();
+        logins.dedup();
+        logins
+            .into_iter()
+            .map(|login| {
+                let role = self.get(&login);
+                (login, role)
+            })
+            .collect()
     }
 }
 
@@ -181,6 +235,7 @@ mod tests {
             admins: vec!["boss".into(), "adm".into()],
             referees: vec![],
             casters: vec!["cast".into()],
+            admin_clubs: vec![],
         });
         assert_eq!(book.get("boss"), Role::SuperAdmin);
         assert_eq!(book.get("adm"), Role::Admin);
@@ -188,5 +243,37 @@ mod tests {
         assert_eq!(book.get("random"), Role::Player);
         book.set("adm", Role::Player);
         assert_eq!(book.get("adm"), Role::Player);
+    }
+
+    #[test]
+    fn granted_roles_add_to_the_configured_ones() {
+        let book = RoleBook::from_config(&RolesConfig {
+            superadmins: vec!["boss".into()],
+            referees: vec!["ref".into()],
+            ..RolesConfig::default()
+        });
+        let club = |logins: &[&str]| {
+            logins
+                .iter()
+                .map(|l| ((*l).to_owned(), Role::Admin))
+                .collect::<HashMap<_, _>>()
+        };
+        let changed = book.set_granted(club(&["boss", "ref", "friend"]));
+        assert_eq!(changed, ["friend", "ref"]);
+        assert_eq!(book.get("boss"), Role::SuperAdmin);
+        assert_eq!(book.get("ref"), Role::Admin);
+        assert_eq!(book.get("friend"), Role::Admin);
+        // "friend" left the club, "ref" goes back to their configured role.
+        let changed = book.set_granted(club(&["boss"]));
+        assert_eq!(changed, ["friend", "ref"]);
+        assert_eq!(book.get("friend"), Role::Player);
+        assert_eq!(book.get("ref"), Role::Referee);
+        assert_eq!(
+            book.staff(),
+            [
+                ("boss".to_owned(), Role::SuperAdmin),
+                ("ref".to_owned(), Role::Referee)
+            ]
+        );
     }
 }

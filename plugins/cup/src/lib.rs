@@ -165,7 +165,12 @@ impl Plugin for CupPlugin {
 
     fn commands(&self) -> Vec<CommandSpec> {
         vec![
-            CommandSpec::new("cup", "cup", Role::Referee)
+            // Referees run the match, admins manage the cups.
+            ["", "status", "pause", "resume", "dq", "reinstate", "go"]
+                .into_iter()
+                .fold(CommandSpec::new("cup", "cup", Role::Admin), |spec, sub| {
+                    spec.sub(sub, Role::Referee)
+                })
                 .usage("/cup <list|load|open|start|go|status|...>"),
             CommandSpec::new("cup", "join", Role::Player),
             CommandSpec::new("cup", "leave", Role::Player),

@@ -29,13 +29,19 @@ pub struct MapsPlugin {
     storage: Option<Storage>,
     /// Controller-side directory of local `.Map.Gbx` files.
     local_dir: PathBuf,
+    /// Players may add maps (`/map add|tmx|uid|search`), not only admins.
+    players_can_add: bool,
 }
+
+/// Sub-commands opened to players by [`MapsPlugin::players_can_add`].
+const PLAYER_SUB_COMMANDS: [&str; 4] = ["add", "tmx", "uid", "search"];
 
 impl std::fmt::Debug for MapsPlugin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MapsPlugin")
             .field("nadeo", &self.nadeo.is_some())
             .field("local_dir", &self.local_dir)
+            .field("players_can_add", &self.players_can_add)
             .finish_non_exhaustive()
     }
 }
@@ -52,7 +58,15 @@ impl MapsPlugin {
             nadeo,
             storage,
             local_dir,
+            players_can_add: false,
         }
+    }
+
+    /// Lets players add maps from Trackmania Exchange or by uid (`[plugins.maps]
+    /// players_can_add`); the rest of the map manager stays for admins.
+    pub fn players_can_add(mut self, allowed: bool) -> MapsPlugin {
+        self.players_can_add = allowed;
+        self
     }
 }
 
@@ -62,9 +76,17 @@ impl Plugin for MapsPlugin {
     }
 
     fn commands(&self) -> Vec<CommandSpec> {
-        vec![CommandSpec::new("maps", "map", Role::Admin).usage(
+        let spec = CommandSpec::new("maps", "map", Role::Admin).usage(
             "/map <list|move|next|play|remove|clear|add|tmx|search|uid|club|room|local> ...",
-        )]
+        );
+        let spec = if self.players_can_add {
+            PLAYER_SUB_COMMANDS
+                .into_iter()
+                .fold(spec, |spec, sub| spec.sub(sub, Role::Player))
+        } else {
+            spec
+        };
+        vec![spec]
     }
 
     fn translations(&self) -> Vec<(Lang, &'static str)> {

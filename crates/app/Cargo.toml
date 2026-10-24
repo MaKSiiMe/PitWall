@@ -23,6 +23,7 @@ pitwall-plugin-maps.workspace = true
 pitwall-plugin-discord.workspace = true
 pitwall-plugin-worldrecords.workspace = true
 pitwall-plugin-votes.workspace = true
+pitwall-plugin-clubs.workspace = true
 pitwall-api.workspace = true
 pitwall-plugin-formats.workspace = true
 pitwall-plugin-logger.workspace = true

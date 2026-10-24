@@ -38,6 +38,9 @@ superadmins = []
 admins = []
 referees = []
 casters = []
+# Trackmania club ids (trackmania.io/#/clubs/<id>) whose members are admins, refreshed every
+# 5 minutes from the Nadeo API (needs PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD).
+admin_clubs = []
 
 [api]
 enabled = true
@@ -74,6 +77,10 @@ background_opacity = 0.75
 [plugins.ui.layout]
 max_rows = 12
 # positions = { ranking = { x = 116.0, y = 62.0 }, world_records = { x = -160.0, y = 62.0 }, records = { x = -160.0, y = 26.0 } }
+
+[plugins.maps]
+# true: every player may add maps (/map add|tmx|uid|search); the rest stays for admins.
+players_can_add = false
 
 [plugins.votes]
 # /skip and /res: player votes to skip or restart the map.

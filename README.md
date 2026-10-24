@@ -27,7 +27,7 @@ French getting-started guide: [docs/GUIDE.fr.md](docs/GUIDE.fr.md).
 | Cups | Phases, qualification (top N / all / Lua), single elimination brackets (teams), start policy (manual / ready check / auto), disconnect policy (keep / pause / eliminate), registrations (list / open / in game / web, optional approval), state saved for crash recovery; off by default for now (`controller.cups = true`) |
 | In-game UI | Live ranking, cup banner + ready button, records, collapsible role-based admin panel, instant show/hide menu, FR/EN |
 | Moderation | kick, ban, blacklist, mute, force spectator/player, teams, pause, end round, points corrections, guest list, password, test bots |
-| Roles | Player < Caster < Referee < Admin < SuperAdmin, fixed permissions |
+| Roles | Player < Caster < Referee < Admin < SuperAdmin, fixed permissions; from the configuration, from Trackmania club membership (`roles.admin_clubs`) or `/role`; every entry point (chat, console, web, in-game buttons) goes through the same check |
 | Maps | Trackmania Exchange (id, URL, search), Nadeo map uid, club campaigns and rooms, local files, uploaded with `WriteFile` (no shared volume); in-game map manager; playlist and mode saved in the server's startup MatchSettings |
 | Storage | SQLite: players, Elo rating, runs with checkpoints, cup history and phase results, audit log, registrations, teams |
 | Web | Dashboard (htmx, works offline), live cup page, web registration, history with CSV/JSON export, JSON API, WebSocket events (overlay-ready) |
@@ -84,8 +84,9 @@ Typed in game (`/help`), in the console (no slash needed) or in the web console.
 | `/cup list\|load\|unload\|open\|start\|advance\|winner\|retry\|add\|remove\|approve\|abort` | Admin | |
 | `/maps [page]` | Admin | in-game map manager: order, next, remove, clear, TMX add and search |
 | `/map list\|move <from> <to>\|next <n>\|play <n>\|remove [n]\|clear` | Admin | playlist (numbers from `/map list`) |
-| `/map tmx <id\|url> [next]`, `/map search`, `/map uid`, `/map club <club> <campaign>`, `/map room <club> <room>`, `/map local` | Admin | add maps |
+| `/map tmx <id\|url> [next]`, `/map search`, `/map uid`, `/map club <club> <campaign>`, `/map room <club> <room>`, `/map local` | Admin | add maps (`add`, `tmx`, `uid`, `search`: Player with `[plugins.maps] players_can_add = true`) |
 | `/ban`, `/blacklist`, `/unban`, `/next`, `/guest`, `/password`, `/bot [off]` | Admin | |
+| `/skip`, `/res`, `/yes`, `/no` | Player | votes; `/skip` from an admin runs `/next`, `/res` from a referee runs `/restart` |
 
 ## Formats and cups
 
@@ -136,7 +137,7 @@ crates/integrations  TMX, Nadeo API, Discord webhooks, exports
 crates/api           web dashboard, JSON API, WebSocket (axum + htmx)
 crates/app           the `pitwall` binary: config, console, wiring
 plugins/*            internal plugins: logger, formats, admin, cup, ui, storage, maps, discord,
-                     worldrecords, votes
+                     worldrecords, votes, clubs
 ```
 
 Plugins receive events and send commands; they never touch the socket. See

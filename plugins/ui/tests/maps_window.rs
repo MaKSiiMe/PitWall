@@ -199,6 +199,35 @@ async fn map_window_follows_the_playlist() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(window_for(&server, "bob").is_none());
 
+    // Nor run staff commands: forged actions are refused with the player's role.
+    let mut seen = handles.bus.raw_subscribe();
+    for action in [
+        "pw:cmd:maps",
+        "pw:cmd:players",
+        "pw:cmd:role bob superadmin",
+    ] {
+        click(&server, "bob", action);
+    }
+    wait_until("three refusals", || {
+        server
+            .calls()
+            .iter()
+            .filter(|c| {
+                c.method == "ChatSendServerMessageToLogin"
+                    && c.params.get(1) == Some(&Value::from("bob"))
+                    && format!("{:?}", c.params[0]).contains("pas le droit")
+            })
+            .count()
+            == 3
+    })
+    .await;
+    while let Ok(event) = seen.try_recv() {
+        assert!(
+            !matches!(event, Event::Command { .. }),
+            "forged action reached a plugin: {event:?}"
+        );
+    }
+
     click(&server, "boss", "pw:maps:close");
     wait_until("window closed", || {
         pages_for(&server, "boss")

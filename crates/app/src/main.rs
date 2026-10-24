@@ -179,6 +179,17 @@ async fn build(
             None
         }
     };
+    if !config.roles.admin_clubs.is_empty() {
+        match &nadeo {
+            Some(nadeo) => controller.add_plugin(pitwall_plugin_clubs::ClubsPlugin::new(
+                Arc::clone(nadeo),
+                config.roles.admin_clubs.clone(),
+            )),
+            None => tracing::warn!(
+                "roles.admin_clubs needs the Nadeo API (PITWALL_NADEO__LOGIN / PITWALL_NADEO__PASSWORD)"
+            ),
+        }
+    }
     if let Some(nadeo) = &nadeo {
         let names = match pitwall_integrations::trackmania::TrackmaniaApi::new(
             http.clone(),
@@ -199,12 +210,15 @@ async fn build(
         ));
     }
     controller.add_plugin(pitwall_plugin_votes::VotesPlugin);
-    controller.add_plugin(pitwall_plugin_maps::MapsPlugin::new(
-        pitwall_integrations::tmx::Tmx::new(http.clone()),
-        nadeo,
-        Some(storage.clone()),
-        config.controller.maps_dir.clone(),
-    ));
+    controller.add_plugin(
+        pitwall_plugin_maps::MapsPlugin::new(
+            pitwall_integrations::tmx::Tmx::new(http.clone()),
+            nadeo,
+            Some(storage.clone()),
+            config.controller.maps_dir.clone(),
+        )
+        .players_can_add(config.plugin_flag("maps", "players_can_add")),
+    );
     if !config.discord.webhook_url.is_empty() {
         let webhook = pitwall_integrations::discord::Webhook::new(
             http.clone(),
@@ -276,12 +290,14 @@ async fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use pitwall_core::chat::{CommandRegistry, Resolution, parse_command_line};
+    use pitwall_core::{Role, RolesConfig};
+
     use super::*;
 
-    /// Every plugin `main` can add, with the optional ones switched on, registers its commands
-    /// and translations without conflict (a duplicate stopped PitWall at startup).
-    #[tokio::test]
-    async fn every_plugin_registers_without_conflict() {
+    /// Builds the binary's plugins, with the optional ones switched on, and registers their
+    /// commands as at startup.
+    async fn registry(tweak: impl FnOnce(&mut Config)) -> CommandRegistry {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
@@ -297,6 +313,11 @@ mod tests {
         config.trackmania_api.client_id = "id".to_owned();
         config.trackmania_api.client_secret = "secret".to_owned();
         config.discord.webhook_url = "https://discord.invalid/webhook".to_owned();
+        config.roles = RolesConfig {
+            admin_clubs: vec![1],
+            ..RolesConfig::default()
+        };
+        tweak(&mut config);
 
         let app = build(
             &config,
@@ -308,6 +329,144 @@ mod tests {
         .unwrap();
         let checked = app.controller.check();
         let _ = std::fs::remove_dir_all(&data_dir);
-        checked.unwrap();
+        checked.unwrap()
+    }
+
+    fn allowed(registry: &CommandRegistry, line: &str, role: Role) -> bool {
+        let (name, args, _) = parse_command_line(line).unwrap();
+        matches!(
+            registry.resolve_invocation(&name, args.first().map(String::as_str), role),
+            Resolution::Allowed(_)
+        )
+    }
+
+    /// Role just below `role`.
+    fn below(role: Role) -> Option<Role> {
+        match role {
+            Role::Player => None,
+            Role::Caster => Some(Role::Player),
+            Role::Referee => Some(Role::Caster),
+            Role::Admin => Some(Role::Referee),
+            Role::SuperAdmin => Some(Role::Admin),
+        }
+    }
+
+    /// Every plugin registers its commands and translations without conflict (a duplicate
+    /// stopped PitWall at startup).
+    #[tokio::test]
+    async fn every_plugin_registers_without_conflict() {
+        registry(|_| {}).await;
+    }
+
+    /// The role each sensitive command needs: the role is enough, the one below is refused.
+    #[tokio::test]
+    async fn sensitive_commands_refuse_a_lower_role() {
+        let registry = registry(|_| {}).await;
+        let expected = [
+            ("/players", Role::Caster),
+            ("/kick bob", Role::Referee),
+            ("/mute bob", Role::Referee),
+            ("/unmute bob", Role::Referee),
+            ("/spec bob", Role::Referee),
+            ("/play bob", Role::Referee),
+            ("/free bob", Role::Referee),
+            ("/team bob blue", Role::Referee),
+            ("/restart", Role::Referee),
+            ("/addtime 5", Role::Referee),
+            ("/endround", Role::Referee),
+            ("/pause", Role::Referee),
+            ("/resume", Role::Referee),
+            ("/endwarmup", Role::Referee),
+            ("/points bob map 3", Role::Referee),
+            ("/teampoints blue map 3", Role::Referee),
+            ("/say hello", Role::Referee),
+            ("/vote pass", Role::Referee),
+            ("/role bob", Role::Referee),
+            ("/cup", Role::Referee),
+            ("/cup status", Role::Referee),
+            ("/cup pause", Role::Referee),
+            ("/cup dq bob", Role::Referee),
+            ("/cup go", Role::Referee),
+            ("/ban bob", Role::Admin),
+            ("/blacklist bob", Role::Admin),
+            ("/unban bob", Role::Admin),
+            ("/next", Role::Admin),
+            ("/guest add bob", Role::Admin),
+            ("/password off", Role::Admin),
+            ("/bot", Role::Admin),
+            ("/mode rounds", Role::Admin),
+            ("/set S_TimeLimit 600", Role::Admin),
+            ("/maps", Role::Admin),
+            ("/map list", Role::Admin),
+            ("/map add 12345", Role::Admin),
+            ("/map tmx 12345 next", Role::Admin),
+            ("/map uid abc", Role::Admin),
+            ("/map search snow", Role::Admin),
+            ("/map club 1 2", Role::Admin),
+            ("/map clear", Role::Admin),
+            ("/map remove", Role::Admin),
+            ("/cup load mini-cup", Role::Admin),
+            ("/cup start", Role::Admin),
+            ("/cup abort", Role::Admin),
+        ];
+        for (line, role) in expected {
+            assert!(allowed(&registry, line, role), "{line} for {role:?}");
+            if let Some(lower) = below(role) {
+                assert!(!allowed(&registry, line, lower), "{line} for {lower:?}");
+            }
+        }
+        for line in [
+            "/help", "/lang fr", "/ui all", "/formats", "/join", "/ready", "/skip",
+        ] {
+            assert!(allowed(&registry, line, Role::Player), "{line}");
+        }
+    }
+
+    /// Whatever the command or sub-command, a role below the one it declares is refused.
+    #[tokio::test]
+    async fn every_command_refuses_a_lower_role() {
+        let registry = registry(|_| {}).await;
+        for spec in registry.available_to(Role::SuperAdmin) {
+            let subs = spec.sub_roles.keys().map(|s| Some(s.as_str()));
+            for sub in std::iter::once(None).chain(subs) {
+                let needed = spec.role_for(sub);
+                if let Some(lower) = below(needed) {
+                    assert!(
+                        matches!(
+                            registry.resolve_invocation(&spec.name, sub, lower),
+                            Resolution::Denied(_)
+                        ),
+                        "/{} {sub:?} for {lower:?}",
+                        spec.name
+                    );
+                }
+            }
+        }
+    }
+
+    /// `[plugins.maps] players_can_add`: players add maps, the rest stays for admins.
+    #[tokio::test]
+    async fn players_can_add_maps_when_allowed() {
+        let registry = registry(|config| {
+            config.plugins = toml::from_str("[maps]\nplayers_can_add = true").unwrap();
+        })
+        .await;
+        for line in [
+            "/map add 12345",
+            "/map tmx 12345 next",
+            "/map uid abc",
+            "/map search snow",
+        ] {
+            assert!(allowed(&registry, line, Role::Player), "{line}");
+        }
+        for line in [
+            "/map clear",
+            "/map remove 2",
+            "/map list",
+            "/map club 1 2",
+            "/maps",
+        ] {
+            assert!(!allowed(&registry, line, Role::Player), "{line}");
+        }
     }
 }

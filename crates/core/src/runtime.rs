@@ -197,13 +197,11 @@ impl Controller {
 
     /// Registers every plugin's commands and translations in a scratch registry, as
     /// [`Controller::run`] does first: a duplicate command or a broken catalog fails here
-    /// instead of at startup on the server.
-    pub fn check(&self) -> Result<(), CoreError> {
-        register(
-            &self.plugins,
-            &CommandRegistry::default(),
-            &Translator::default(),
-        )
+    /// instead of at startup on the server. Returns that registry.
+    pub fn check(&self) -> Result<CommandRegistry, CoreError> {
+        let registry = CommandRegistry::default();
+        register(&self.plugins, &registry, &Translator::default())?;
+        Ok(registry)
     }
 
     /// Runs until `shutdown` is cancelled.

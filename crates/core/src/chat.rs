@@ -66,7 +66,11 @@ impl Invocation {
 pub struct CommandSpec {
     pub name: String,
     pub aliases: Vec<String>,
+    /// Role needed for the command and every sub-command without its own role.
     pub min_role: Role,
+    /// Sub-command (first argument, lowercase; `""` = no argument) → role needed, when it
+    /// differs from `min_role`.
+    pub sub_roles: BTreeMap<String, Role>,
     /// e.g. `/mode <name>`.
     pub usage: String,
     /// Translation key of the one-line description.
@@ -81,6 +85,7 @@ impl CommandSpec {
             name: name.to_owned(),
             aliases: Vec::new(),
             min_role,
+            sub_roles: BTreeMap::new(),
             usage: format!("/{name}"),
             description_key: format!("{owner}.cmd.{name}"),
             owner: owner.to_owned(),
@@ -100,6 +105,29 @@ impl CommandSpec {
     pub fn description(mut self, key: &str) -> CommandSpec {
         self.description_key = key.to_owned();
         self
+    }
+
+    /// Gives the sub-command `name` (first argument, `""` for none) its own role, checked by
+    /// the registry.
+    pub fn sub(mut self, name: &str, role: Role) -> CommandSpec {
+        self.sub_roles.insert(name.to_ascii_lowercase(), role);
+        self
+    }
+
+    /// Role needed to run the command with this first argument.
+    pub fn role_for(&self, sub: Option<&str>) -> Role {
+        self.sub_roles
+            .get(&sub.unwrap_or_default().to_ascii_lowercase())
+            .copied()
+            .unwrap_or(self.min_role)
+    }
+
+    /// Lowest role that can run at least one form of the command.
+    pub fn lowest_role(&self) -> Role {
+        self.sub_roles
+            .values()
+            .copied()
+            .fold(self.min_role, Role::min)
     }
 }
 
@@ -162,7 +190,22 @@ impl CommandRegistry {
         Ok(())
     }
 
+    /// Resolves a command for `role`, allowed if `role` can run at least one of its forms.
     pub fn resolve(&self, name: &str, role: Role) -> Resolution {
+        self.resolve_with(name, role, CommandSpec::lowest_role)
+    }
+
+    /// Resolves a command line's name and first argument for `role`.
+    pub fn resolve_invocation(&self, name: &str, sub: Option<&str>, role: Role) -> Resolution {
+        self.resolve_with(name, role, |spec| spec.role_for(sub))
+    }
+
+    fn resolve_with(
+        &self,
+        name: &str,
+        role: Role,
+        needed: impl Fn(&CommandSpec) -> Role,
+    ) -> Resolution {
         let inner = self
             .inner
             .read()
@@ -174,7 +217,7 @@ impl CommandRegistry {
         else {
             return Resolution::Unknown;
         };
-        if role >= spec.min_role {
+        if role >= needed(spec) {
             Resolution::Allowed(spec.clone())
         } else {
             Resolution::Denied(spec.clone())
@@ -190,7 +233,7 @@ impl CommandRegistry {
         inner
             .specs
             .values()
-            .filter(|s| role >= s.min_role)
+            .filter(|s| role >= s.lowest_role())
             .cloned()
             .collect()
     }
@@ -237,7 +280,10 @@ pub fn dispatch(
         }
         ReplyTo::Nowhere => {}
     };
-    match d.registry.resolve(&name, role) {
+    match d
+        .registry
+        .resolve_invocation(&name, args.first().map(String::as_str), role)
+    {
         Resolution::Allowed(spec) => d.bus.publish(crate::Event::Command {
             invocation: Invocation {
                 actor,
@@ -356,5 +402,37 @@ mod tests {
 
         let dup = registry.register(CommandSpec::new("other", "format", Role::Player));
         assert!(matches!(dup, Err(RegistryError::Duplicate { owner, .. }) if owner == "formats"));
+    }
+
+    #[test]
+    fn sub_commands_have_their_own_role() {
+        let registry = CommandRegistry::default();
+        registry
+            .register(
+                CommandSpec::new("cup", "cup", Role::Admin)
+                    .sub("status", Role::Referee)
+                    .sub("", Role::Referee)
+                    .sub("join", Role::Player),
+            )
+            .unwrap();
+        let allowed = |sub: Option<&str>, role| {
+            matches!(
+                registry.resolve_invocation("cup", sub, role),
+                Resolution::Allowed(_)
+            )
+        };
+        assert!(allowed(Some("STATUS"), Role::Referee));
+        assert!(!allowed(Some("start"), Role::Referee));
+        assert!(allowed(None, Role::Referee));
+        assert!(!allowed(None, Role::Player));
+        assert!(allowed(Some("start"), Role::Admin));
+        assert!(allowed(Some("join"), Role::Player));
+        assert!(!allowed(Some("status"), Role::Player));
+        // Listed in /help for whoever can run one of its forms.
+        assert_eq!(registry.available_to(Role::Player).len(), 1);
+        assert!(matches!(
+            registry.resolve("cup", Role::Player),
+            Resolution::Allowed(_)
+        ));
     }
 }
