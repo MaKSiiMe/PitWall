@@ -87,6 +87,61 @@ async fn run(cli: Cli) -> Result<(), AppError> {
         return Ok(());
     }
 
+    let app = build(&config, formats, cups, translator).await?;
+    let App {
+        controller,
+        cup_handle,
+        formats,
+        storage,
+    } = app;
+
+    let shutdown = CancellationToken::new();
+    tokio::spawn(wait_for_signal(shutdown.clone()));
+    if config.api.enabled {
+        let api = pitwall_api::ApiState::new(
+            controller.handles(),
+            cup_handle,
+            Arc::clone(&formats),
+            storage.clone(),
+            pitwall_api::ApiConfig {
+                bind: config.api.bind.clone(),
+                admin_token: config.api.admin_token.clone(),
+                public_url: config.api.public_url.clone(),
+                cups: config.controller.cups,
+            },
+        );
+        let api_shutdown = shutdown.clone();
+        tokio::spawn(async move {
+            if let Err(err) = pitwall_api::serve(api, api_shutdown).await {
+                tracing::error!(%err, "web dashboard stopped");
+            }
+        });
+    }
+    if config.controller.console {
+        tokio::spawn(console::run(controller.handles(), shutdown.clone()));
+    }
+
+    controller.run(shutdown).await?;
+    tracing::info!("PitWall stopped");
+    Ok(())
+}
+
+/// The controller with every plugin, ready to run.
+struct App {
+    controller: Controller,
+    cup_handle: pitwall_plugin_cup::CupHandle,
+    formats: Arc<RwLock<FormatRegistry>>,
+    storage: pitwall_storage::Storage,
+}
+
+/// Opens the database and adds the plugins the configuration enables.
+async fn build(
+    config: &Config,
+    formats: FormatRegistry,
+    cups: CupLibrary,
+    translator: Translator,
+) -> Result<App, AppError> {
+    let formats = Arc::new(RwLock::new(formats));
     let options = ControllerOptions {
         server: config.server.clone(),
         default_lang: config.controller.default_lang,
@@ -96,7 +151,6 @@ async fn run(cli: Cli) -> Result<(), AppError> {
     let storage =
         pitwall_storage::Storage::open(&config.controller.data_dir.join("pitwall.db")).await?;
     let mut controller = Controller::new(options, RoleBook::from_config(&config.roles), translator);
-    let formats = Arc::new(RwLock::new(formats));
     controller.add_plugin(pitwall_plugin_logger::LoggerPlugin);
     controller.add_plugin(pitwall_plugin_formats::FormatsPlugin::new(Arc::clone(
         &formats,
@@ -165,35 +219,12 @@ async fn run(cli: Cli) -> Result<(), AppError> {
             .with_cups(config.controller.cups),
     );
 
-    let shutdown = CancellationToken::new();
-    tokio::spawn(wait_for_signal(shutdown.clone()));
-    if config.api.enabled {
-        let api = pitwall_api::ApiState::new(
-            controller.handles(),
-            cup_handle,
-            Arc::clone(&formats),
-            storage.clone(),
-            pitwall_api::ApiConfig {
-                bind: config.api.bind.clone(),
-                admin_token: config.api.admin_token.clone(),
-                public_url: config.api.public_url.clone(),
-                cups: config.controller.cups,
-            },
-        );
-        let api_shutdown = shutdown.clone();
-        tokio::spawn(async move {
-            if let Err(err) = pitwall_api::serve(api, api_shutdown).await {
-                tracing::error!(%err, "web dashboard stopped");
-            }
-        });
-    }
-    if config.controller.console {
-        tokio::spawn(console::run(controller.handles(), shutdown.clone()));
-    }
-
-    controller.run(shutdown).await?;
-    tracing::info!("PitWall stopped");
-    Ok(())
+    Ok(App {
+        controller,
+        cup_handle,
+        formats,
+        storage,
+    })
 }
 
 /// Cancels `shutdown` on Ctrl+C or SIGTERM (`docker stop`).
@@ -240,5 +271,43 @@ async fn main() -> ExitCode {
             eprintln!("pitwall: {err}");
             ExitCode::FAILURE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every plugin `main` can add, with the optional ones switched on, registers its commands
+    /// and translations without conflict (a duplicate stopped PitWall at startup).
+    #[tokio::test]
+    async fn every_plugin_registers_without_conflict() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default();
+        let data_dir =
+            std::env::temp_dir().join(format!("pitwall-build-{}-{nanos}", std::process::id()));
+        let mut config = Config::default();
+        config.server.password = "test".to_owned();
+        config.controller.data_dir = data_dir.clone();
+        config.controller.cups = true;
+        config.nadeo.login = "login".to_owned();
+        config.nadeo.password = "password".to_owned();
+        config.trackmania_api.client_id = "id".to_owned();
+        config.trackmania_api.client_secret = "secret".to_owned();
+        config.discord.webhook_url = "https://discord.invalid/webhook".to_owned();
+
+        let app = build(
+            &config,
+            FormatRegistry::load(None).unwrap(),
+            CupLibrary::default(),
+            Translator::with_core_catalogs().unwrap(),
+        )
+        .await
+        .unwrap();
+        let checked = app.controller.check();
+        let _ = std::fs::remove_dir_all(&data_dir);
+        checked.unwrap();
     }
 }

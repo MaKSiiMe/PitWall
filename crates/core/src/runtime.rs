@@ -195,6 +195,17 @@ impl Controller {
         self.handles.clone()
     }
 
+    /// Registers every plugin's commands and translations in a scratch registry, as
+    /// [`Controller::run`] does first: a duplicate command or a broken catalog fails here
+    /// instead of at startup on the server.
+    pub fn check(&self) -> Result<(), CoreError> {
+        register(
+            &self.plugins,
+            &CommandRegistry::default(),
+            &Translator::default(),
+        )
+    }
+
     /// Runs until `shutdown` is cancelled.
     pub async fn run(self, shutdown: CancellationToken) -> Result<(), CoreError> {
         let Controller {
@@ -205,26 +216,7 @@ impl Controller {
         } = self;
 
         // Register commands and translations first so plugins see a complete registry.
-        for plugin in &plugins {
-            for spec in plugin.commands() {
-                handles
-                    .registry
-                    .register(spec)
-                    .map_err(|source| CoreError::Registry {
-                        plugin: plugin.name().to_owned(),
-                        source,
-                    })?;
-            }
-            for (lang, catalog) in plugin.translations() {
-                handles
-                    .i18n
-                    .add_catalog(lang, catalog)
-                    .map_err(|source| CoreError::Catalog {
-                        plugin: plugin.name().to_owned(),
-                        source,
-                    })?;
-            }
-        }
+        register(&plugins, &handles.registry, &handles.i18n)?;
 
         let mut tasks = tokio::task::JoinSet::new();
         for plugin in plugins {
@@ -287,6 +279,32 @@ impl Controller {
         tasks.abort_all();
         Ok(())
     }
+}
+
+/// Registers the commands and translations of `plugins`.
+fn register(
+    plugins: &[Box<dyn Plugin>],
+    registry: &CommandRegistry,
+    i18n: &Translator,
+) -> Result<(), CoreError> {
+    for plugin in plugins {
+        for spec in plugin.commands() {
+            registry
+                .register(spec)
+                .map_err(|source| CoreError::Registry {
+                    plugin: plugin.name().to_owned(),
+                    source,
+                })?;
+        }
+        for (lang, catalog) in plugin.translations() {
+            i18n.add_catalog(lang, catalog)
+                .map_err(|source| CoreError::Catalog {
+                    plugin: plugin.name().to_owned(),
+                    source,
+                })?;
+        }
+    }
+    Ok(())
 }
 
 // -----------------------------------------------------------------------------------------------
