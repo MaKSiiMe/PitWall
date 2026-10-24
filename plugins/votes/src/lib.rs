@@ -1,5 +1,7 @@
 //! Player votes: `/skip` and `/res` call a vote to skip or restart the map, `/yes` and `/no`
 //! answer it, `/vote pass|cancel` lets a referee decide. One vote at a time; it ends with the map.
+//! Staff allowed to act directly skip the vote: `/skip` runs `/next` for admins, `/res` runs
+//! `/restart` for referees (the admin plugin's own commands, with their message and audit).
 //!
 //! The vote passes as soon as more than `ratio` of the connected players said yes, fails as soon
 //! as that cannot happen any more, and otherwise is decided at the deadline by the votes cast.
@@ -160,6 +162,17 @@ struct Votes {
     last_call: HashMap<String, i64>,
 }
 
+/// Runs the admin command `line` for the invoker, with the same role checks.
+fn forward(ctx: &PluginContext, inv: &Invocation, line: &str) {
+    ctx.invoke(
+        inv.actor.clone(),
+        inv.role,
+        inv.lang,
+        line,
+        inv.reply.clone(),
+    );
+}
+
 fn electorate(ctx: &PluginContext) -> BTreeSet<String> {
     ctx.state.read(|s| s.players.keys().cloned().collect())
 }
@@ -168,6 +181,8 @@ impl Votes {
     fn on_event(&mut self, ctx: &PluginContext, event: Event) {
         match event {
             Event::Command { invocation } => match invocation.name.as_str() {
+                "skip" if invocation.role >= Role::Admin => forward(ctx, &invocation, "next"),
+                "res" if invocation.role >= Role::Referee => forward(ctx, &invocation, "restart"),
                 "skip" => self.call(ctx, &invocation, Kind::Skip),
                 "res" => self.call(ctx, &invocation, Kind::Restart),
                 "yes" => self.answer(ctx, &invocation, true),

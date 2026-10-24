@@ -1720,9 +1720,12 @@ name = "pitwall-plugin-votes"
 version = "0.1.0"
 dependencies = [
  "pitwall-core",
+ "pitwall-gbx",
+ "pitwall-plugin-admin",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
