@@ -151,6 +151,17 @@ pub enum LogFormat {
     Json,
 }
 
+impl Config {
+    /// Boolean `key` of `[plugins.<plugin>]`, `false` when missing.
+    pub fn plugin_flag(&self, plugin: &str, key: &str) -> bool {
+        self.plugins
+            .get(plugin)
+            .and_then(|section| section.get(key))
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(false)
+    }
+}
+
 /// Configuration errors.
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
@@ -222,6 +233,7 @@ skip = ["checkpoint"]
                 r#"["X6N6WxRIR_Sj6Xr10yuDJA"]"#,
             );
             jail.set_env("PITWALL_ROLES__ADMINS", "[a_login, b-login]");
+            jail.set_env("PITWALL_PLUGINS__MAPS__PLAYERS_CAN_ADD", "true");
             let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
             assert_eq!(
                 config.roles.superadmins,
@@ -231,6 +243,8 @@ skip = ["checkpoint"]
                 config.roles.admins,
                 vec!["a_login".to_owned(), "b-login".to_owned()]
             );
+            assert!(config.plugin_flag("maps", "players_can_add"));
+            assert!(!config.plugin_flag("maps", "missing"));
             Ok(())
         });
     }

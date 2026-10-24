@@ -199,12 +199,15 @@ async fn build(
         ));
     }
     controller.add_plugin(pitwall_plugin_votes::VotesPlugin);
-    controller.add_plugin(pitwall_plugin_maps::MapsPlugin::new(
-        pitwall_integrations::tmx::Tmx::new(http.clone()),
-        nadeo,
-        Some(storage.clone()),
-        config.controller.maps_dir.clone(),
-    ));
+    controller.add_plugin(
+        pitwall_plugin_maps::MapsPlugin::new(
+            pitwall_integrations::tmx::Tmx::new(http.clone()),
+            nadeo,
+            Some(storage.clone()),
+            config.controller.maps_dir.clone(),
+        )
+        .players_can_add(config.plugin_flag("maps", "players_can_add")),
+    );
     if !config.discord.webhook_url.is_empty() {
         let webhook = pitwall_integrations::discord::Webhook::new(
             http.clone(),
