@@ -23,6 +23,7 @@ pub mod frame;
 pub mod methods;
 #[cfg(feature = "mock")]
 pub mod mock;
+pub mod record;
 pub mod types;
 pub mod value;
 pub mod xml;
