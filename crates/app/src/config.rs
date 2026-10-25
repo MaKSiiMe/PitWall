@@ -22,6 +22,7 @@ pub struct Config {
     pub trackmania_api: TrackmaniaApiSection,
     pub discord: DiscordSection,
     pub api: ApiSection,
+    pub recording: RecordingSection,
     /// `[plugins.<name>]` sections, passed to each plugin.
     pub plugins: toml::Table,
 }
@@ -122,6 +123,30 @@ impl Default for ApiSection {
             bind: "127.0.0.1:8080".to_owned(),
             admin_token: String::new(),
             public_url: String::new(),
+        }
+    }
+}
+
+/// Recording of the raw GbxRemote traffic (docs/ENREGISTREMENT.fr.md). Off by default.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct RecordingSection {
+    pub enabled: bool,
+    /// Directory of the recordings; empty: `<data_dir>/recordings`.
+    pub dir: PathBuf,
+    /// A new file starts past this size.
+    pub max_file_mb: u64,
+    /// Files kept (the newest).
+    pub max_files: usize,
+}
+
+impl Default for RecordingSection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            dir: PathBuf::new(),
+            max_file_mb: 20,
+            max_files: 10,
         }
     }
 }
@@ -267,6 +292,7 @@ skip = ["checkpoint"]
             let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;
             assert_eq!(config.controller.formats, ["timeattack", "rounds"]);
             assert!(!config.controller.cups);
+            assert!(!config.recording.enabled);
             jail.set_env("PITWALL_CONTROLLER__FORMATS", "[]");
             jail.set_env("PITWALL_CONTROLLER__CUPS", "true");
             let config = load(Path::new("missing.toml")).map_err(|e| e.to_string())?;

@@ -54,7 +54,7 @@ impl Plugin for AdminPlugin {
                 Role::Admin,
                 "/guest <add|remove> <login> | /guest clear",
             ),
-            spec("password", Role::Admin, "/password <password|off>"),
+            spec("password", Role::Admin, "/password <password|off>").secret(),
             spec("bot", Role::Admin, "/bot [off]"),
             spec("say", Role::Referee, "/say <text>"),
         ]

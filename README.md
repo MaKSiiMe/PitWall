@@ -16,13 +16,14 @@ team matches**.
 > Status: the code is complete and tested against an in-process fake server; it has not yet run
 > against a real dedicated server. See [Known limitations](#known-limitations).
 
-French getting-started guide: [docs/GUIDE.fr.md](docs/GUIDE.fr.md).
+French getting-started guide: [docs/GUIDE.fr.md](docs/GUIDE.fr.md). Recording a real session and
+turning it into a test: [docs/ENREGISTREMENT.fr.md](docs/ENREGISTREMENT.fr.md).
 
 ## Features
 
 | Area | What you get |
 | --- | --- |
-| Protocol | GbxRemote 2 client: typed methods and callbacks (legacy + TM2020 script callbacks), multicall, timeouts, auto-reconnect |
+| Protocol | GbxRemote 2 client: typed methods and callbacks (legacy + TM2020 script callbacks), multicall, timeouts, auto-reconnect; optional recording of the raw traffic (passwords masked) and replay in tests |
 | Formats | Built-in TA, Rounds, Cup, Teams, Knockout, Laps, TMWT, Royal; custom formats in `config/formats/*.toml`; `/mode <format>`, `/set S_x value`; `controller.formats` picks the ones offered (TA and Rounds by default) |
 | Cups | Phases, qualification (top N / all / Lua), single elimination brackets (teams), start policy (manual / ready check / auto), disconnect policy (keep / pause / eliminate), registrations (list / open / in game / web, optional approval), state saved for crash recovery; off by default for now (`controller.cups = true`) |
 | In-game UI | Live ranking, cup banner + ready button, records, collapsible role-based admin panel, instant show/hide menu, FR/EN |

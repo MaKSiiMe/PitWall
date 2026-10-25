@@ -25,7 +25,10 @@ pub enum ReplyTo {
 }
 
 /// A command ready to be executed by its plugin.
-#[derive(Debug, Clone, Serialize)]
+///
+/// Serialized (logs, WebSocket) with its arguments masked when the command declares them
+/// secret ([`CommandSpec::secret`]).
+#[derive(Debug, Clone)]
 pub struct Invocation {
     pub actor: Actor,
     pub role: Role,
@@ -35,8 +38,40 @@ pub struct Invocation {
     pub args: Vec<String>,
     /// Everything after the command name, untouched (for free text such as kick reasons).
     pub raw_args: String,
-    #[serde(skip)]
+    /// The arguments are secrets (a password): never logged.
+    pub secret: bool,
     pub reply: ReplyTo,
+}
+
+impl Serialize for Invocation {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct View<'a> {
+            actor: &'a Actor,
+            role: Role,
+            lang: Lang,
+            name: &'a str,
+            args: Vec<&'a str>,
+            raw_args: &'a str,
+        }
+        let (args, raw_args) = if self.secret && !self.args.is_empty() {
+            (vec!["***"], "***")
+        } else {
+            (
+                self.args.iter().map(String::as_str).collect(),
+                self.raw_args.as_str(),
+            )
+        };
+        View {
+            actor: &self.actor,
+            role: self.role,
+            lang: self.lang,
+            name: &self.name,
+            args,
+            raw_args,
+        }
+        .serialize(serializer)
+    }
 }
 
 impl Invocation {
@@ -77,6 +112,8 @@ pub struct CommandSpec {
     pub description_key: String,
     /// Plugin that handles it.
     pub owner: String,
+    /// The arguments are secrets, masked in logs and events.
+    pub secret: bool,
 }
 
 impl CommandSpec {
@@ -89,7 +126,14 @@ impl CommandSpec {
             usage: format!("/{name}"),
             description_key: format!("{owner}.cmd.{name}"),
             owner: owner.to_owned(),
+            secret: false,
         }
+    }
+
+    /// Marks the arguments as secrets (masked in logs and events).
+    pub fn secret(mut self) -> CommandSpec {
+        self.secret = true;
+        self
     }
 
     pub fn alias(mut self, alias: &str) -> CommandSpec {
@@ -292,6 +336,7 @@ pub fn dispatch(
                 name: spec.name,
                 args,
                 raw_args,
+                secret: spec.secret,
                 reply,
             },
         }),
@@ -434,5 +479,23 @@ mod tests {
             registry.resolve("cup", Role::Player),
             Resolution::Allowed(_)
         ));
+    }
+
+    #[test]
+    fn secret_arguments_are_masked_when_serialized() {
+        let invocation = |secret| Invocation {
+            actor: Actor::Console,
+            role: Role::Admin,
+            lang: Lang::En,
+            name: "password".into(),
+            args: vec!["hunter2".into()],
+            raw_args: "hunter2".into(),
+            secret,
+            reply: ReplyTo::Nowhere,
+        };
+        let json = serde_json::to_string(&invocation(true)).unwrap();
+        assert!(!json.contains("hunter2") && json.contains("***"), "{json}");
+        let json = serde_json::to_string(&invocation(false)).unwrap();
+        assert!(json.contains("hunter2"));
     }
 }

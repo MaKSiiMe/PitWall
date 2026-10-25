@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use crate::callbacks::Callback;
 use crate::error::{Fault, GbxError, XmlError};
 use crate::frame::{Frame, GbxCodec, HandleAllocator, read_handshake};
+use crate::record::Recorder;
 use crate::value::Value;
 use crate::xml::{self, Message, MethodResponse};
 
@@ -30,6 +31,8 @@ pub struct ClientOptions {
     pub callback_buffer: usize,
     /// Framing limits.
     pub codec: GbxCodec,
+    /// Records every frame, when set.
+    pub recorder: Option<Recorder>,
 }
 
 impl Default for ClientOptions {
@@ -39,6 +42,7 @@ impl Default for ClientOptions {
             connect_timeout: Duration::from_secs(5),
             callback_buffer: 4096,
             codec: GbxCodec::default(),
+            recorder: None,
         }
     }
 }
@@ -52,6 +56,7 @@ struct Inner {
     handles: Mutex<HandleAllocator>,
     call_timeout: Duration,
     closed: CancellationToken,
+    recorder: Option<Recorder>,
 }
 
 /// A connected GbxRemote client. Cheap to clone; all clones share the connection.
@@ -117,7 +122,11 @@ impl GbxClient {
             handles: Mutex::new(HandleAllocator::default()),
             call_timeout: options.call_timeout,
             closed: CancellationToken::new(),
+            recorder: options.recorder,
         });
+        if let Some(recorder) = &inner.recorder {
+            recorder.event("connected");
+        }
         let (callback_tx, callback_rx) = mpsc::channel(options.callback_buffer);
         let reader = FramedRead::new(read, options.codec);
         tokio::spawn(read_loop(reader, Arc::clone(&inner), callback_tx));
@@ -150,6 +159,9 @@ impl GbxClient {
         self.lock_pending().insert(handle, tx);
 
         tracing::trace!(method, handle, "→ call");
+        if let Some(recorder) = &self.inner.recorder {
+            recorder.sent(handle, &payload);
+        }
         let sent = self
             .inner
             .writer
@@ -273,6 +285,9 @@ async fn read_loop<R>(
                 break;
             }
         };
+        if let Some(recorder) = &inner.recorder {
+            recorder.received(frame.handle, &frame.payload);
+        }
         let text = String::from_utf8_lossy(&frame.payload);
         if frame.is_callback() {
             match xml::decode(&text) {
@@ -313,6 +328,9 @@ async fn read_loop<R>(
         }
     }
     inner.closed.cancel();
+    if let Some(recorder) = &inner.recorder {
+        recorder.event("disconnected");
+    }
     // Dropping the senders wakes every pending call with `ConnectionClosed`.
     inner
         .pending

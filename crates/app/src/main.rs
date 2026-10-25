@@ -126,6 +126,33 @@ async fn run(cli: Cli) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Starts the traffic recording if `[recording] enabled`; a failure only disables it.
+fn recorder(config: &Config) -> Option<pitwall_core::gbx::record::Recorder> {
+    let recording = &config.recording;
+    if !recording.enabled {
+        return None;
+    }
+    let dir = if recording.dir.as_os_str().is_empty() {
+        config.controller.data_dir.join("recordings")
+    } else {
+        recording.dir.clone()
+    };
+    match pitwall_core::gbx::record::Recorder::start(pitwall_core::gbx::record::RecorderConfig {
+        dir: dir.clone(),
+        max_file_bytes: recording.max_file_mb.max(1) * 1024 * 1024,
+        max_files: recording.max_files,
+    }) {
+        Ok(recorder) => {
+            tracing::info!(dir = %dir.display(), "GbxRemote traffic recording enabled");
+            Some(recorder)
+        }
+        Err(err) => {
+            tracing::error!(%err, dir = %dir.display(), "cannot record the GbxRemote traffic");
+            None
+        }
+    }
+}
+
 /// The controller with every plugin, ready to run.
 struct App {
     controller: Controller,
@@ -147,6 +174,7 @@ async fn build(
         default_lang: config.controller.default_lang,
         announce_joins: config.controller.announce_joins,
         plugin_configs: config.plugins.clone(),
+        recorder: recorder(config),
     };
     let storage =
         pitwall_storage::Storage::open(&config.controller.data_dir.join("pitwall.db")).await?;

@@ -61,6 +61,14 @@ public_url = ""             # e.g. https://cup.example.org (registration links)
 # webhook_url = "..."       # → set PITWALL_DISCORD__WEBHOOK_URL instead
 username = "PitWall"
 
+[recording]
+# Raw GbxRemote traffic, to turn a bug seen on the server into a test
+# (docs/ENREGISTREMENT.fr.md). Passwords are masked. Off by default.
+enabled = false
+dir = ""                    # "" = <data_dir>/recordings
+max_file_mb = 20            # a new file starts past this size
+max_files = 10              # the newest files are kept
+
 [log]
 filter = "info"             # e.g. "info,pitwall::events=debug"; RUST_LOG overrides it
 format = "pretty"           # pretty | json
