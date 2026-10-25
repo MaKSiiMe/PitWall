@@ -31,5 +31,13 @@ tokio = { workspace = true, features = ["test-util"] }
 name = "mock_server"
 required-features = ["mock"]
 
+[[example]]
+name = "replay"
+required-features = ["mock"]
+
+[[example]]
+name = "anonymize"
+required-features = ["mock"]
+
 [lints]
 workspace = true

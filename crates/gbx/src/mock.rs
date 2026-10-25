@@ -271,6 +271,11 @@ impl MockServer {
         let _ = self.callbacks.send(payload);
     }
 
+    /// Pushes a callback given as a whole `<methodCall>` document (replayed recordings).
+    pub fn send_raw_callback(&self, xml: String) {
+        let _ = self.callbacks.send(Bytes::from(xml));
+    }
+
     /// Pushes a mode script callback (`ManiaPlanet.ModeScriptCallbackArray`).
     pub fn send_script_callback(&self, name: &str, json: &serde_json::Value) {
         self.send_callback(

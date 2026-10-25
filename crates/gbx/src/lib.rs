@@ -24,6 +24,8 @@ pub mod methods;
 #[cfg(feature = "mock")]
 pub mod mock;
 pub mod record;
+#[cfg(feature = "mock")]
+pub mod replay;
 pub mod types;
 pub mod value;
 pub mod xml;
