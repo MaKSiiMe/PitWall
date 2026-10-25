@@ -78,6 +78,8 @@ services:
       PITWALL_TRACKMANIA_API__CLIENT_ID: ${PITWALL_TM_API_CLIENT_ID:-}
       PITWALL_TRACKMANIA_API__CLIENT_SECRET: ${PITWALL_TM_API_CLIENT_SECRET:-}
       PITWALL_DISCORD__WEBHOOK_URL: ${PITWALL_DISCORD_WEBHOOK_URL:-}
+      # true: records the GbxRemote traffic in /data/recordings (docs/ENREGISTREMENT.fr.md).
+      PITWALL_RECORDING__ENABLED: ${PITWALL_RECORDING:-false}
       # Every bus event (checkpoints, respawns…) is logged at info by the logger plugin: hidden
       # by default on the server, "info" shows them again.
       PITWALL_LOG__FILTER: ${PITWALL_LOG_FILTER:-info,pitwall::events=warn}

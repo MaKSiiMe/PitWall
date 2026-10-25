@@ -84,6 +84,8 @@ pub struct ControllerOptions {
     pub announce_joins: bool,
     /// `[plugins.<name>]` sections.
     pub plugin_configs: toml::Table,
+    /// Records the GbxRemote traffic of every connection, when set.
+    pub recorder: Option<pitwall_gbx::record::Recorder>,
 }
 
 /// Errors that stop the runtime.
@@ -368,6 +370,7 @@ impl Connection {
         let server = &self.options.server;
         let options = ClientOptions {
             call_timeout: Duration::from_secs(server.call_timeout_secs.max(1)),
+            recorder: self.options.recorder.clone(),
             ..ClientOptions::default()
         };
         let (client, callbacks) = GbxClient::connect(addr, options).await?;
