@@ -138,6 +138,8 @@ pub enum Command {
     },
     CleanGuests,
     SetPassword {
+        /// Masked when serialized (audit log, WebSocket): `***`, or `""` when removed.
+        #[serde(serialize_with = "masked")]
         password: String,
     },
     ConnectBot,
@@ -148,6 +150,10 @@ pub enum Command {
         #[serde(skip)]
         params: Vec<Value>,
     },
+}
+
+fn masked<S: serde::Serializer>(secret: &str, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(if secret.is_empty() { "" } else { "***" })
 }
 
 /// Serializable mirror of [`SpectatorMode`].
@@ -299,5 +305,28 @@ impl CommandHandle {
             to: Recipients::login(login),
             text: text.into(),
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_server_password_never_reaches_the_audit_log() {
+        let set = Command::SetPassword {
+            password: "hunter2".to_owned(),
+        };
+        let json = serde_json::to_string(&set).unwrap();
+        assert!(!json.contains("hunter2"), "{json}");
+        assert!(json.contains("***"));
+        let off = Command::SetPassword {
+            password: String::new(),
+        };
+        assert!(
+            serde_json::to_string(&off)
+                .unwrap()
+                .contains(r#""password":"""#)
+        );
     }
 }
